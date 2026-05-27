@@ -9,7 +9,11 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "NUFOTEC a besoin d'accéder à votre galerie pour sauvegarder les vidéos téléchargées.",
+        "NSPhotoLibraryAddUsageDescription": "NUFOTEC a besoin d'accéder à votre galerie pour sauvegarder les vidéos téléchargées."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +23,15 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO"
+      ]
     },
     "web": {
       "output": "static",
@@ -38,6 +50,20 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      "expo-video",
+      "expo-audio",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow NUFOTEC to access your photos to save downloaded content.",
+          "savePhotosPermission": "Allow NUFOTEC to save videos to your gallery.",
+          "isAccessMediaLocationEnabled": true
+        }
+      ],
+      [
+        "expo-file-system",
+        {}
       ]
     ],
     "experiments": {
