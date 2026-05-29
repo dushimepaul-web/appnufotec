@@ -1,10 +1,9 @@
-// app/index.jsx
+// app/index.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React from 'react';
 import {
-  Dimensions,
   Image,
   SafeAreaView,
   ScrollView,
@@ -16,29 +15,37 @@ import {
 import BottomNav from '../src/components/BottomNav';
 import { radius, spacing, typography } from '../src/utils/theme';
 
-const { width } = Dimensions.get('window');
+type AppRoute = '/medias' | '/consultation' | '/produits';
+
+type ActionCard = {
+  title: string;
+  description: string;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  gradient: readonly [string, string];
+  route: AppRoute;
+};
 
 export default function HomeScreen() {
-  const actionCards = [
+  const actionCards: ActionCard[] = [
     {
-      title: 'MÉDIAS',
+      title: 'EMISSION SUR LA SANTE',
       description: 'Accédez à nos vidéos, audios, PDF et articles',
       icon: 'play-circle',
-      gradient: ['#4CAF50', '#2E7D32'],
+      gradient: ['#4CAF50', '#2E7D32'] as const,
       route: '/medias',
     },
     {
       title: 'CONSULTATION',
       description: 'Réservez une consultation avec nos experts',
       icon: 'calendar',
-      gradient: ['#FF9800', '#E65100'],
+      gradient: ['#FF9800', '#E65100'] as const,
       route: '/consultation',
     },
     {
       title: 'PRODUITS',
       description: 'Découvrez nos produits naturels',
       icon: 'leaf',
-      gradient: ['#4CAF50', '#FF9800'],
+      gradient: ['#4CAF50', '#FF9800'] as const,
       route: '/produits',
     },
   ];
@@ -46,49 +53,42 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <ScrollView 
-          style={styles.scrollView} 
+        <ScrollView
+          style={styles.scrollView}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          {/* Hero Section */}
           <LinearGradient
-            colors={['#FFFFFF', '#F5F5F5']}
+            colors={['#FFFFFF', '#F5F5F5'] as const}
             style={styles.hero}
           >
-            {/* Espace entre le haut et le logo */}
             <View style={styles.topSpacer} />
-            
+
             <View style={styles.headerRow}>
               <View style={styles.logoContainer}>
-                <Image 
-                  source={require('../assets/logo.png')} 
+                <Image
+                  source={require('../assets/logo.png')}
                   style={styles.logoImage}
                   resizeMode="contain"
                 />
               </View>
-              {/* Espace entre le logo et le texte */}
               <View style={styles.logoTextSpacer} />
               <Text style={styles.logoText}>
-                NUFOTEC <Text style={styles.logoTextBold}>BURUNDI</Text>
+                {'NUFOTEC '}
+                <Text style={styles.logoTextBold}>{'BURUNDI'}</Text>
               </Text>
             </View>
-            
-            <Text style={styles.tagline}>Connaître • Agir • Transformer</Text>
-            
+
+            <Text style={styles.tagline}>{'Connaître • Agir • Transformer'}</Text>
+
             <View style={styles.welcomeCard}>
-              <Text style={styles.welcomeTitle}>Bienvenu sur NUFOTEC BURUNDI</Text>
+              <Text style={styles.welcomeTitle}>{'Bienvenu sur NUFOTEC BURUNDI'}</Text>
               <Text style={styles.welcomeText}>
-                Votre plateforme d'information, de conseils et de solutions naturelles.
+                {"Votre plateforme d'information, de conseils et de solutions naturelles."}
               </Text>
-              <TouchableOpacity style={styles.learnMoreBtn}>
-                <Text style={styles.learnMoreText}>En savoir plus</Text>
-                <Ionicons name="arrow-forward" size={16} color="#4CAF50" />
-              </TouchableOpacity>
             </View>
           </LinearGradient>
 
-          {/* 3 boutons sur la même ligne */}
           <View style={styles.actionsRow}>
             {actionCards.map((card, index) => (
               <TouchableOpacity
@@ -114,11 +114,10 @@ export default function HomeScreen() {
               </TouchableOpacity>
             ))}
           </View>
-          
+
           <View style={{ height: 80 }} />
         </ScrollView>
 
-        {/* Barre de navigation en bas */}
         <BottomNav />
       </View>
     </SafeAreaView>
@@ -149,7 +148,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   topSpacer: {
-    height: 60, // Espace en haut avant le logo
+    height: 60,
   },
   headerRow: {
     flexDirection: 'row',
@@ -171,7 +170,7 @@ const styles = StyleSheet.create({
     height: 100,
   },
   logoTextSpacer: {
-    width: 5, // Espace entre le logo et le texte
+    width: 5,
   },
   logoText: {
     fontSize: 28,
@@ -187,7 +186,7 @@ const styles = StyleSheet.create({
     color: '#666666',
     textAlign: 'center',
     marginBottom: spacing.xl,
-    marginTop: spacing.md, // Ajout d'espace au-dessus du tagline
+    marginTop: spacing.md,
   },
   welcomeCard: {
     backgroundColor: '#FFFFFF',

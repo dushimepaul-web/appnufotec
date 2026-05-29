@@ -1,12 +1,12 @@
 // src/components/CategoryChips.js
-import React from 'react';
-import { ScrollView, TouchableOpacity, Text, StyleSheet, View } from 'react-native';
-import { colors, typography, spacing, radius } from '../utils/theme';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { colors, radius, spacing, typography } from '../utils/theme';
 
 const TABS = [
   { key: 'all',   label: 'Tout' },
   { key: 'video', label: '▶  Vidéos' },
   { key: 'audio', label: '♪  Audio' },
+  { key: 'pdf',   label: '📄  PDF' },   // ← ajouté
 ];
 
 export default function CategoryChips({ selected, onSelect, categories = [] }) {

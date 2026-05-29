@@ -1,45 +1,53 @@
 // app/medias.jsx
+import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
-
-import BottomNav from '../src/components/BottomNav'; // ← Import
+import BottomNav from '../src/components/BottomNav';
 import CategoryChips from '../src/components/CategoryChips';
 import Header from '../src/components/Header';
 import MediaCard from '../src/components/MediaCard';
-import { useCategories, useMedias } from '../src/hooks/useMedias';
+import { useMedias } from '../src/hooks/useMedias';
 import { colors, spacing } from '../src/utils/theme';
+
+const TYPE_TABS = ['all', 'video', 'audio', 'pdf'];
 
 export default function MediasScreen() {
   const [selectedTab, setSelectedTab] = useState('all');
-  const { data: categories } = useCategories();
 
-  const typeParam = ['video', 'audio'].includes(selectedTab) ? selectedTab : 'all';
-  const categoryParam = !['all', 'video', 'audio'].includes(selectedTab) ? selectedTab : undefined;
+  const isTypeTab = TYPE_TABS.includes(selectedTab);
+  const typeParam     = isTypeTab ? selectedTab : 'all';
+  const categoryParam = !isTypeTab ? selectedTab : undefined;
 
-  const { data, loading, refreshing, loadingMore, refresh, loadMore } = useMedias({
+  const { data = [], loading, refreshing, loadingMore, refresh, loadMore } = useMedias({
     type: typeParam,
     category: categoryParam,
     limit: 20,
   });
 
   const handlePress = useCallback((item) => {
-    router.push({
-      pathname: '/PlayerScreen',
-      params: { id: item.id_media, slug: item.slug }
-    });
+    if (item.type === 'document') {
+      const url = item.fichier || item.lien;
+      if (url) Linking.openURL(url);
+    } else {
+      router.push({
+        pathname: '/PlayerScreen',
+        params: { id: item.id_media, slug: item.slug },
+      });
+    }
   }, []);
 
-  const renderItem = useCallback(({ item }) => (
-    <MediaCard item={item} onPress={handlePress} />
-  ), [handlePress]);
+  const renderItem = useCallback(
+    ({ item }) => <MediaCard item={item} onPress={handlePress} />,
+    [handlePress]
+  );
 
   const renderFooter = () => {
     if (!loadingMore) return <View style={{ height: spacing.xxl }} />;
@@ -59,6 +67,17 @@ export default function MediasScreen() {
     );
   };
 
+  // Pas de categories dynamiques → uniquement les 4 onglets fixes
+  const ListHeader = useCallback(
+    () => (
+      <CategoryChips
+        selected={selectedTab}
+        onSelect={setSelectedTab}
+      />
+    ),
+    [selectedTab]
+  );
+
   return (
     <View style={styles.root}>
       <Header />
@@ -67,13 +86,7 @@ export default function MediasScreen() {
         data={data}
         keyExtractor={(item) => String(item.id_media)}
         renderItem={renderItem}
-        ListHeaderComponent={
-          <CategoryChips
-            selected={selectedTab}
-            onSelect={setSelectedTab}
-            categories={categories}
-          />
-        }
+        ListHeaderComponent={ListHeader}
         stickyHeaderIndices={[0]}
         ListEmptyComponent={renderEmpty}
         ListFooterComponent={renderFooter}
