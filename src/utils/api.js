@@ -4,6 +4,15 @@ const BASE_URL = 'https://nufotec.com/api/mobile';
 
 const DEFAULT_LANG = 'fr';
 
+const BASE_DOMAIN = 'https://nufotec.com';
+
+export function resolveUrl(path) {
+  if (!path) return path;
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  if (path.startsWith('/')) return `${BASE_DOMAIN}${path}`;
+  return `${BASE_DOMAIN}/${path}`;
+}
+
 class ApiService {
   constructor() {
     this.baseUrl = BASE_URL;
@@ -48,6 +57,9 @@ class ApiService {
         method: 'POST',
         body: formData,
       });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
       return await response.json();
     } catch (error) {
       console.error(`API POST Error [${endpoint}]:`, error.message);
@@ -82,6 +94,10 @@ class ApiService {
 
   getRecent(limit = 20) {
     return this.request('recent', { limit });
+  }
+
+  getSettings() {
+    return this.request('settings');
   }
 
   getPlaylists() {

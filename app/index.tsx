@@ -1,265 +1,157 @@
-// app/index.tsx
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
-  Image,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+  Dimensions, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import BottomNav from '../src/components/BottomNav';
+import { useSettings } from '../src/contexts/SettingsContext';
+import { useTheme } from '../src/contexts/ThemeContext';
 import { radius, spacing, typography } from '../src/utils/theme';
 
-type AppRoute = '/medias' | '/consultation' | '/produits';
-
-type ActionCard = {
-  title: string;
-  description: string;
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-  gradient: readonly [string, string];
-  route: AppRoute;
-};
+const { width: SCREEN_W } = Dimensions.get('window');
 
 export default function HomeScreen() {
-  const actionCards: ActionCard[] = [
-    {
-      title: 'EMISSION SUR LA SANTE',
-      description: 'Accédez à nos vidéos, audios, PDF et articles',
-      icon: 'play-circle',
-      gradient: ['#4CAF50', '#2E7D32'] as const,
-      route: '/medias',
-    },
-    {
-      title: 'CONSULTATION',
-      description: 'Réservez une consultation avec nos experts',
-      icon: 'calendar',
-      gradient: ['#FF9800', '#E65100'] as const,
-      route: '/consultation',
-    },
-    {
-      title: 'PRODUITS',
-      description: 'Découvrez nos produits naturels',
-      icon: 'leaf',
-      gradient: ['#4CAF50', '#FF9800'] as const,
-      route: '/produits',
-    },
-  ];
+  const { palette } = useTheme();
+  const styles = useMemo(() => cs(palette), [palette]);
+  const s = useSettings();
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
-        <ScrollView
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          <LinearGradient
-            colors={['#FFFFFF', '#F5F5F5'] as const}
-            style={styles.hero}
-          >
-            <View style={styles.topSpacer} />
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
-            <View style={styles.headerRow}>
-              <View style={styles.logoContainer}>
-                <Image
-                  source={require('../assets/logo.png')}
-                  style={styles.logoImage}
-                  resizeMode="contain"
-                />
+          {/* Logo */}
+          <View style={styles.logoSection}>
+            <View style={styles.logoBg1} />
+            <View style={styles.logoBg2} />
+            <View style={styles.logoWrap}>
+              <Image source={require('../assets/logo.png')} style={styles.logo} resizeMode="contain" />
+            </View>
+            <Text style={styles.logoTitle}>
+              {s.app_name} <Text style={styles.logoGold}>{s.app_subtitle}</Text>
+            </Text>
+            <Text style={styles.logoTag}>{s.tagline}</Text>
+          </View>
+
+          {/* Bienvenue */}
+          <View style={styles.welcome}>
+            <View style={styles.welcomeLine} />
+            <Text style={styles.welcomeTitle}>{s.welcome_title}</Text>
+            <Text style={styles.welcomeText}>{s.welcome_text}</Text>
+          </View>
+
+          {/* Stats */}
+          <View style={styles.statsOuter}>
+            {s.stats.map((stat, i) => (
+              <View key={i} style={[styles.statCard, i === 1 && styles.statGold]}>
+                <Text style={[styles.statNum, { color: i === 1 ? palette.gold : palette.green }]}>{stat.value}</Text>
+                <Text style={[styles.statLabel, i === 1 && { color: palette.gold }]}>{stat.label}</Text>
               </View>
-              <View style={styles.logoTextSpacer} />
-              <Text style={styles.logoText}>
-                {'NUFOTEC '}
-                <Text style={styles.logoTextBold}>{'BURUNDI'}</Text>
-              </Text>
-            </View>
+            ))}
+          </View>
 
-            <Text style={styles.tagline}>{'Connaître • Agir • Transformer'}</Text>
+          {/* Services */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Nos services</Text>
+            <View style={styles.sectionLine} />
+          </View>
 
-            <View style={styles.welcomeCard}>
-              <Text style={styles.welcomeTitle}>{'Bienvenu sur NUFOTEC BURUNDI'}</Text>
-              <Text style={styles.welcomeText}>
-                {"Votre plateforme d'information, de conseils et de solutions naturelles."}
-              </Text>
-            </View>
-          </LinearGradient>
-
-          <View style={styles.actionsRow}>
-            {actionCards.map((card, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.actionCardSmall}
-                onPress={() => router.push(card.route)}
-                activeOpacity={0.9}
-              >
-                <LinearGradient
-                  colors={card.gradient}
-                  style={styles.actionCardGradientSmall}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <View style={styles.actionIconSmall}>
-                    <Ionicons name={card.icon} size={28} color="white" />
-                  </View>
-                  <Text style={styles.actionTitleSmall}>{card.title}</Text>
-                  <Text style={styles.actionDescriptionSmall} numberOfLines={2}>
-                    {card.description}
-                  </Text>
-                </LinearGradient>
+          <View style={styles.grid}>
+            {(s.quick_actions || []).map((card, i) => (
+              <TouchableOpacity key={i} style={styles.gridCard} onPress={() => router.push(card.route as any)} activeOpacity={0.7}>
+                <View style={[styles.gridIcon, { backgroundColor: `${card.color}14` }]}>
+                  <Ionicons name={card.icon as any} size={24} color={card.color} />
+                </View>
+                <Text style={styles.gridTitle}>{card.title}</Text>
+                <Text style={styles.gridDesc}>{card.description}</Text>
               </TouchableOpacity>
             ))}
           </View>
 
-          <View style={{ height: 80 }} />
-        </ScrollView>
+          {/* WhatsApp */}
+          <View style={styles.wa}>
+            <View style={styles.waBg} />
+            <View style={styles.waBg2} />
+            <View style={styles.waTop}>
+              <View style={styles.waIcon}>
+                <Ionicons name="logo-whatsapp" size={26} color={palette.white} />
+              </View>
+              <View style={styles.waBadge}>
+                <View style={styles.waDot} />
+                <Text style={styles.waBadgeText}>En ligne</Text>
+              </View>
+            </View>
+            <Text style={styles.waTitle}>{s.banner.title}</Text>
+            <Text style={styles.waText}>{s.banner.text}</Text>
+            <TouchableOpacity style={styles.waBtn} activeOpacity={0.8}>
+              <View style={styles.waBtnInner}>
+                <Ionicons name="logo-whatsapp" size={16} color="#25D366" />
+                <Text style={styles.waBtnText}>{s.banner.button_text}</Text>
+              </View>
+              <Ionicons name="arrow-forward" size={16} color="#25D366" />
+            </TouchableOpacity>
+          </View>
 
+          <View style={{ height: 100 }} />
+        </ScrollView>
         <BottomNav />
       </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
+const cs = (p) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: p.whiteOff },
+  container: { flex: 1, backgroundColor: p.whiteOff },
+  scroll: { flexGrow: 1 },
+
+  logoSection: { alignItems: 'center', paddingTop: spacing.xxl + 20, paddingBottom: spacing.xl, paddingHorizontal: spacing.lg, position: 'relative', overflow: 'hidden' },
+  logoBg1: { position: 'absolute', top: -40, right: -50, width: 180, height: 180, borderRadius: 90, backgroundColor: `${p.green}06` },
+  logoBg2: { position: 'absolute', bottom: -30, left: -40, width: 130, height: 130, borderRadius: 65, backgroundColor: `${p.gold}06` },
+  logoWrap: { width: 88, height: 88, borderRadius: 22, backgroundColor: p.white, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.md, borderWidth: 2, borderColor: p.gold, shadowColor: p.green, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 10, elevation: 5 },
+  logo: { width: 72, height: 72 },
+  logoTitle: { fontSize: 28, fontWeight: '900', color: p.dark, textAlign: 'center' },
+  logoGold: { color: p.gold },
+  logoTag: { fontSize: typography.sm, color: p.greyDark, textAlign: 'center', marginTop: spacing.xs, maxWidth: SCREEN_W * 0.7 },
+
+  welcome: { marginHorizontal: spacing.lg, marginBottom: spacing.xl, backgroundColor: p.white, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: p.greyLight, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
+  welcomeLine: { width: 36, height: 3, borderRadius: 2, backgroundColor: p.green, marginBottom: spacing.md },
+  welcomeTitle: { fontSize: typography.lg, fontWeight: '800', color: p.dark, marginBottom: spacing.sm },
+  welcomeText: { fontSize: typography.sm, color: '#4A4F55', lineHeight: 21 },
+
+  statsOuter: { flexDirection: 'row', paddingHorizontal: spacing.lg, gap: spacing.sm, marginBottom: spacing.xl },
+  statCard: { flex: 1, alignItems: 'center', backgroundColor: p.white, borderRadius: radius.lg, paddingVertical: spacing.lg, borderWidth: 1, borderColor: p.greyLight, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
+  statGold: { borderColor: p.gold, backgroundColor: `${p.gold}04` },
+  statNum: { fontSize: 24, fontWeight: '900' },
+  statLabel: { fontSize: typography.xs, color: p.greyDark, fontWeight: '600', marginTop: 3 },
+
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, marginBottom: spacing.md },
+  sectionTitle: { fontSize: typography.xl, fontWeight: '800', color: p.dark },
+  sectionLine: { flex: 1, height: 1, backgroundColor: p.greyLight },
+
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, paddingHorizontal: spacing.lg, marginBottom: spacing.xl },
+  gridCard: {
+    width: (SCREEN_W - spacing.lg * 2 - spacing.md) / 2,
+    backgroundColor: p.white, borderRadius: radius.lg, padding: spacing.md,
+    borderWidth: 1, borderColor: p.greyLight,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2,
   },
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  hero: {
-    paddingTop: 20,
-    paddingBottom: 30,
-    paddingHorizontal: spacing.lg,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    alignItems: 'center',
-  },
-  topSpacer: {
-    height: 60,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.md,
-  },
-  logoContainer: {
-    width: 90,
-    height: 90,
-    borderRadius: 40,
-    backgroundColor: 'rgba(76, 175, 80, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 8,
-  },
-  logoImage: {
-    width: 100,
-    height: 100,
-  },
-  logoTextSpacer: {
-    width: 5,
-  },
-  logoText: {
-    fontSize: 28,
-    fontWeight: '500',
-    color: '#4CAF50',
-  },
-  logoTextBold: {
-    fontWeight: 'bold',
-    color: '#FF9800',
-  },
-  tagline: {
-    fontSize: typography.sm,
-    color: '#666666',
-    textAlign: 'center',
-    marginBottom: spacing.xl,
-    marginTop: spacing.md,
-  },
-  welcomeCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    marginTop: spacing.md,
-    width: '100%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  welcomeTitle: {
-    fontSize: typography.lg,
-    fontWeight: 'bold',
-    color: '#333333',
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  welcomeText: {
-    fontSize: typography.sm,
-    color: '#666666',
-    lineHeight: 20,
-    marginBottom: spacing.md,
-    textAlign: 'center',
-  },
-  learnMoreBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-  },
-  learnMoreText: {
-    color: '#4CAF50',
-    fontWeight: '600',
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.xl,
-    gap: spacing.md,
-  },
-  actionCardSmall: {
-    flex: 1,
-    borderRadius: radius.md,
-    overflow: 'hidden',
-  },
-  actionCardGradientSmall: {
-    padding: spacing.sm,
-    alignItems: 'center',
-    minHeight: 130,
-    justifyContent: 'center',
-  },
-  actionIconSmall: {
-    width: 45,
-    height: 45,
-    borderRadius: 23,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  actionTitleSmall: {
-    color: 'white',
-    fontSize: typography.sm,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  actionDescriptionSmall: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: typography.xs,
-    textAlign: 'center',
-  },
+  gridIcon: { width: 44, height: 44, borderRadius: radius.md, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.sm },
+  gridTitle: { fontSize: typography.base, fontWeight: '700', color: p.dark, marginBottom: 2 },
+  gridDesc: { fontSize: typography.xs, color: p.greyDark, lineHeight: 15 },
+
+  wa: { marginHorizontal: spacing.lg, marginBottom: spacing.xl, backgroundColor: '#128C7E', borderRadius: radius.lg, padding: spacing.lg, position: 'relative', overflow: 'hidden', shadowColor: '#128C7E', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 14, elevation: 6 },
+  waBg: { position: 'absolute', top: -30, right: -30, width: 140, height: 140, borderRadius: 70, backgroundColor: `${p.white}08` },
+  waBg2: { position: 'absolute', bottom: -20, left: -20, width: 90, height: 90, borderRadius: 45, backgroundColor: `${p.white}06` },
+  waTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md },
+  waIcon: { width: 48, height: 48, borderRadius: radius.md, backgroundColor: `${p.white}15`, justifyContent: 'center', alignItems: 'center' },
+  waBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: `${p.white}12`, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.full },
+  waDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#69F0AE' },
+  waBadgeText: { color: p.white, fontSize: typography.xs, fontWeight: '600' },
+  waTitle: { color: p.white, fontWeight: '800', fontSize: typography.base, marginBottom: spacing.xs },
+  waText: { color: `${p.white}CC`, fontSize: typography.sm, lineHeight: 18, marginBottom: spacing.lg },
+  waBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', backgroundColor: p.white, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.full },
+  waBtnInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  waBtnText: { color: '#128C7E', fontWeight: '800', fontSize: typography.sm },
 });

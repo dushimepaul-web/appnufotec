@@ -1,7 +1,6 @@
-// src/components/MediaCard.js
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router'; // ← IMPORTANT : utiliser router d'expo-router
-import React, { useContext } from 'react';
+import { router } from 'expo-router';
+import { useContext, useMemo } from 'react';
 import {
   Image,
   StyleSheet,
@@ -10,15 +9,18 @@ import {
   View,
 } from 'react-native';
 import { PlayerContext } from '../contexts/PlayerContext';
-import { colors, radius, shadow, spacing, typography } from '../utils/theme';
+import { useTheme } from '../contexts/ThemeContext';
+import { palette, radius, spacing, typography } from '../utils/theme';
 
 const TYPE_CONFIG = {
-  audio: { icon: 'musical-notes',  color: '#A78BFA', bg: 'rgba(167,139,250,0.2)' },
-  video: { icon: 'play-circle',    color: '#60A5FA', bg: 'rgba(96,165,250,0.2)' },
-  pdf:   { icon: 'document-text',  color: '#34D399', bg: 'rgba(52,211,153,0.2)' },
+  audio: { icon: 'musical-notes', color: palette.gold, bg: palette.goldSoft },
+  video: { icon: 'play-circle', color: palette.green, bg: 'rgba(11,107,58,0.1)' },
+  pdf: { icon: 'document-text', color: palette.red, bg: palette.redSoft },
 };
 
 export default function MediaCard({ item, onPress, horizontal = false }) {
+  const { palette } = useTheme();
+  const styles = useMemo(() => s(palette), [palette]);
   const playerContext = useContext(PlayerContext);
   const stopPlayback = playerContext?.stopPlayback || (() => Promise.resolve());
 
@@ -33,26 +35,19 @@ export default function MediaCard({ item, onPress, horizontal = false }) {
     } catch (error) {
       console.error('Error in stopPlayback:', error);
     }
-    
     if (onPress) {
       onPress(item);
     } else {
-      // Utilisation correcte de router.push
       router.push({
         pathname: '/PlayerScreen',
-        params: { id: item.id_media }
+        params: { id: item.id_media },
       });
     }
   };
 
-  // Le reste du JSX reste identique...
   if (horizontal) {
     return (
-      <TouchableOpacity
-        style={styles.cardH}
-        onPress={handlePress}
-        activeOpacity={0.8}
-      >
+      <TouchableOpacity style={styles.cardH} onPress={handlePress} activeOpacity={0.8}>
         <View style={styles.thumbWrapH}>
           <Image
             source={
@@ -74,7 +69,7 @@ export default function MediaCard({ item, onPress, horizontal = false }) {
           )}
           {isYoutube && (
             <View style={styles.ytBadge}>
-              <Ionicons name="logo-youtube" size={12} color="#FF0000" />
+              <Ionicons name="logo-youtube" size={12} color={palette.red} />
             </View>
           )}
         </View>
@@ -94,11 +89,7 @@ export default function MediaCard({ item, onPress, horizontal = false }) {
   }
 
   return (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={handlePress}
-      activeOpacity={0.8}
-    >
+    <TouchableOpacity style={styles.card} onPress={handlePress} activeOpacity={0.8}>
       <View style={styles.thumbWrap}>
         <Image
           source={
@@ -111,7 +102,7 @@ export default function MediaCard({ item, onPress, horizontal = false }) {
         />
         <View style={styles.thumbOverlay} />
         <View style={[styles.typeBadge, { backgroundColor: typeConfig.bg }]}>
-          <Ionicons name={typeConfig.icon} size={11} color={typeConfig.color} />
+          <Ionicons name={typeConfig.icon} size={12} color={typeConfig.color} />
         </View>
         {item.duration_formatted && item.duration_formatted !== '0:00' && (
           <View style={styles.durationBadge}>
@@ -120,7 +111,7 @@ export default function MediaCard({ item, onPress, horizontal = false }) {
         )}
         {isYoutube && (
           <View style={styles.ytBadge}>
-            <Ionicons name="logo-youtube" size={12} color="#FF0000" />
+            <Ionicons name="logo-youtube" size={12} color={palette.red} />
           </View>
         )}
       </View>
@@ -138,15 +129,11 @@ export default function MediaCard({ item, onPress, horizontal = false }) {
           {item.credits ? ` • ${item.credits}` : ''}
         </Text>
       </View>
-      <TouchableOpacity style={styles.menuBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Ionicons name="ellipsis-vertical" size={16} color={colors.textMuted} />
-      </TouchableOpacity>
     </TouchableOpacity>
   );
 }
 
-// Styles (gardez vos styles existants)
-const styles = StyleSheet.create({
+const s = (p) => StyleSheet.create({
   card: {
     flexDirection: 'row',
     marginBottom: spacing.md,
@@ -154,19 +141,20 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   thumbWrap: {
-    width: 156,
-    height: 88,
+    width: 160,
+    height: 90,
     borderRadius: radius.sm,
     overflow: 'hidden',
-    backgroundColor: colors.bgElevated,
+    backgroundColor: p.whiteOff,
     marginRight: spacing.md,
     flexShrink: 0,
-    ...shadow.card,
+    borderWidth: 1,
+    borderColor: p.greyLight,
   },
   thumb: { width: '100%', height: '100%' },
   thumbOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.08)',
+    backgroundColor: 'rgba(0,0,0,0.03)',
   },
   typeBadge: {
     position: 'absolute',
@@ -179,7 +167,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 5,
     right: 5,
-    backgroundColor: 'rgba(0,0,0,0.82)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     borderRadius: 4,
     paddingHorizontal: 5,
     paddingVertical: 2,
@@ -189,7 +177,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 5,
     left: 6,
-    backgroundColor: 'rgba(0,0,0,0.75)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     borderRadius: 4,
     padding: 3,
   },
@@ -199,7 +187,7 @@ const styles = StyleSheet.create({
     paddingTop: 2,
   },
   title: {
-    color: colors.text,
+    color: p.dark,
     fontSize: typography.base,
     fontWeight: '600',
     lineHeight: 19,
@@ -207,53 +195,48 @@ const styles = StyleSheet.create({
   },
   metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 4 },
   catPill: {
-    backgroundColor: 'rgba(230,57,70,0.15)',
+    backgroundColor: 'rgba(11,107,58,0.1)',
     borderRadius: radius.full,
     paddingHorizontal: 7,
     paddingVertical: 2,
     alignSelf: 'flex-start',
   },
   catPillText: {
-    color: colors.accent,
+    color: p.green,
     fontSize: typography.xs,
     fontWeight: '700',
     letterSpacing: 0.3,
   },
   metaText: {
-    color: colors.textSub,
+    color: p.greyDark,
     fontSize: typography.xs,
-  },
-  menuBtn: {
-    position: 'absolute',
-    right: spacing.base,
-    top: 0,
-    padding: 4,
   },
   cardH: {
     width: 180,
     marginRight: spacing.md,
-    backgroundColor: colors.bgCard,
+    backgroundColor: p.white,
     borderRadius: radius.md,
     overflow: 'hidden',
-    ...shadow.card,
+    borderWidth: 1,
+    borderColor: p.greyLight,
   },
   thumbWrapH: {
     width: '100%',
     height: 100,
-    backgroundColor: colors.bgElevated,
+    backgroundColor: p.whiteOff,
   },
   infoH: {
     padding: spacing.sm,
     gap: 4,
   },
   titleH: {
-    color: colors.text,
+    color: p.dark,
     fontSize: typography.sm,
     fontWeight: '600',
     lineHeight: 17,
   },
   metaTextH: {
-    color: colors.textSub,
+    color: p.greyDark,
     fontSize: typography.xs,
   },
 });

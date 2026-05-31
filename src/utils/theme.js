@@ -1,39 +1,79 @@
-// src/utils/theme.js
+export const palette = {
+  green: '#0C7B45',
+  greenLight: '#14A85A',
+  greenDark: '#096035',
+  gold: '#D4A843',
+  goldLight: '#E8C84A',
+  goldDark: '#B8942E',
+  red: '#D92D4A',
+  redLight: '#F04A66',
+  redDark: '#B81E38',
+  white: '#FFFFFF',
+  whiteOff: '#F4F5F7',
+  grey: '#B0B8C1',
+  greyDark: '#7A828E',
+  greyLight: '#E2E5EA',
+  dark: '#1A1D21',
+  darkLight: '#2D3238',
+  darkCard: '#24282E',
+  darkElevated: '#333940',
+};
+
+export const darkPalette = {
+  green: '#14A85A',
+  greenLight: '#1CC96A',
+  greenDark: '#0C7B45',
+  gold: '#D4A843',
+  goldLight: '#E8C84A',
+  goldDark: '#B8942E',
+  red: '#D92D4A',
+  redLight: '#F04A66',
+  redDark: '#B81E38',
+  white: '#121418',
+  whiteOff: '#1C1E24',
+  grey: '#5A6068',
+  greyDark: '#8A9098',
+  greyLight: '#2A2D35',
+  dark: '#F0F2F5',
+  darkLight: '#C8CCD0',
+  darkCard: '#24282E',
+  darkElevated: '#333940',
+};
+
 export const colors = {
-  // Fond principal — deep navy, pas noir pur
-  bg: '#0D1117',
-  bgCard: '#161B22',
-  bgElevated: '#21262D',
-  bgOverlay: 'rgba(13,17,23,0.85)',
+  bg: palette.white,
+  bgCard: palette.whiteOff,
+  bgElevated: palette.greyLight,
+  bgOverlay: 'rgba(0,0,0,0.05)',
 
-  // Accent — rouge vif avec variantes
-  accent: '#E63946',
-  accentSoft: '#FF6B6B',
-  accentGlow: 'rgba(230,57,70,0.25)',
+  accent: palette.green,
+  accentSoft: palette.greenLight,
+  accentGlow: 'rgba(12,123,69,0.1)',
 
-  // Texte
-  text: '#F0F6FC',
-  textSub: '#8B949E',
-  textMuted: '#484F58',
+  gold: palette.gold,
+  goldSoft: 'rgba(212,168,67,0.1)',
 
-  // Bordures & séparateurs
-  border: '#30363D',
-  borderLight: '#21262D',
+  red: palette.red,
+  redSoft: 'rgba(217,45,74,0.08)',
 
-  // Chips / filtres
-  chip: '#21262D',
-  chipActive: '#E63946',
-  chipTextActive: '#FFFFFF',
+  text: palette.dark,
+  textSub: '#5A6068',
+  textMuted: palette.grey,
 
-  // Gradient cards
-  gradientStart: '#1C2128',
-  gradientEnd: '#0D1117',
+  border: palette.greyLight,
+  borderLight: '#EEF0F2',
 
-  // Tab bar
-  tabBg: '#161B22',
-  tabBorder: '#30363D',
-  tabActive: '#E63946',
-  tabInactive: '#8B949E',
+  chip: palette.greyLight,
+  chipActive: palette.green,
+  chipTextActive: palette.white,
+
+  gradientStart: palette.whiteOff,
+  gradientEnd: palette.white,
+
+  tabBg: palette.white,
+  tabBorder: palette.greyLight,
+  tabActive: palette.green,
+  tabInactive: palette.grey,
 };
 
 export const typography = {
@@ -68,17 +108,24 @@ export const radius = {
 
 export const shadow = {
   card: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowColor: '#1A1D21',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
     shadowRadius: 8,
-    elevation: 6,
+    elevation: 3,
   },
   accent: {
-    shadowColor: '#E63946',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowColor: palette.green,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  gold: {
+    shadowColor: palette.gold,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 6,
   },
 };

@@ -8,6 +8,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
+import { resolveUrl } from '../utils/api';
 
 const OFFLINE_DIR = Platform.OS !== 'web'
   ? FileSystem.documentDirectory + 'offline_media/'
@@ -120,8 +121,9 @@ export function useOfflineMedia() {
     setDownloads((prev) => ({ ...prev, [id]: { progress: 0 } }));
 
     try {
+      const downloadUrl = resolveUrl(media.file_url);
       const resumable = FileSystem.createDownloadResumable(
-        media.file_url,
+        downloadUrl,
         localUri,
         {},
         (prog) => {

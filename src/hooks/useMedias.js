@@ -110,15 +110,16 @@ export function useSearch() {
 export function usePopular() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     api.getPopular(20)
       .then(res => { if (res.success) setData(res.data || []); })
-      .catch(() => {})
+      .catch((e) => { setError(e.message); })
       .finally(() => setLoading(false));
   }, []);
 
-  return { data, loading };
+  return { data, loading, error };
 }
 
 export function useCategories() {

@@ -1,15 +1,18 @@
-// src/components/CategoryChips.js
+import { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { colors, radius, spacing, typography } from '../utils/theme';
+import { useTheme } from '../contexts/ThemeContext';
+import { radius, spacing, typography } from '../utils/theme';
 
 const TABS = [
-  { key: 'all',   label: 'Tout' },
-  { key: 'video', label: '▶  Vidéos' },
-  { key: 'audio', label: '♪  Audio' },
-  { key: 'pdf',   label: '📄  PDF' },   // ← ajouté
+  { key: 'all', label: 'Tout' },
+  { key: 'video', label: 'Vidéos' },
+  { key: 'audio', label: 'Audio' },
+  { key: 'pdf', label: 'PDF' },
 ];
 
 export default function CategoryChips({ selected, onSelect, categories = [] }) {
+  const { palette } = useTheme();
+  const styles = useMemo(() => s(palette), [palette]);
   const allChips = [
     ...TABS,
     ...categories.map(c => ({ key: c.nom, label: c.nom, count: c.total })),
@@ -47,11 +50,11 @@ export default function CategoryChips({ selected, onSelect, categories = [] }) {
   );
 }
 
-const styles = StyleSheet.create({
+const s = (p) => StyleSheet.create({
   wrapper: {
-    backgroundColor: colors.bg,
+    backgroundColor: p.white,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: p.greyLight,
   },
   container: {
     paddingHorizontal: spacing.base,
@@ -64,28 +67,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: colors.bgElevated,
+    backgroundColor: p.whiteOff,
     borderRadius: radius.full,
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: p.greyLight,
   },
   chipActive: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
+    backgroundColor: p.green,
+    borderColor: p.green,
   },
   chipText: {
-    color: colors.textSub,
+    color: p.greyDark,
     fontSize: typography.sm,
     fontWeight: '600',
   },
   chipTextActive: {
-    color: '#fff',
+    color: p.white,
     fontWeight: '700',
   },
   chipCount: {
-    color: colors.textMuted,
+    color: p.grey,
     fontSize: typography.xs,
     fontWeight: '600',
   },

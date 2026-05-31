@@ -1,25 +1,21 @@
-// app/SearchScreen.jsx
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import {
-  ActivityIndicator,
-  FlatList,
-  Keyboard,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+  ActivityIndicator, FlatList, Keyboard, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import MediaCard from '../src/components/MediaCard';
+import { useSettings } from '../src/contexts/SettingsContext';
 import { useSearch } from '../src/hooks/useMedias';
-import { colors, radius, spacing, typography } from '../src/utils/theme';
+import { radius, spacing, typography } from '../src/utils/theme';
+import { useTheme } from '../src/contexts/ThemeContext';
 
 export default function SearchScreen() {
+  const { palette } = useTheme();
+  const styles = useMemo(() => cs(palette), [palette]);
   const insets = useSafeAreaInsets();
+  const s = useSettings().search;
   const { results, loading, query, search } = useSearch();
   const inputRef = useRef(null);
 
@@ -29,18 +25,17 @@ export default function SearchScreen() {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
-      {/* Barre de recherche */}
       <View style={styles.bar}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
+          <Ionicons name="arrow-back" size={22} color={palette.dark} />
         </TouchableOpacity>
         <View style={styles.inputWrap}>
-          <Ionicons name="search" size={18} color={colors.textMuted} style={styles.inputIcon} />
+          <Ionicons name="search" size={18} color={palette.grey} />
           <TextInput
             ref={inputRef}
             style={styles.input}
-            placeholder="Rechercher des médias..."
-            placeholderTextColor={colors.textMuted}
+            placeholder={s.placeholder}
+            placeholderTextColor={palette.grey}
             onChangeText={search}
             returnKeyType="search"
             onSubmitEditing={Keyboard.dismiss}
@@ -49,10 +44,9 @@ export default function SearchScreen() {
         </View>
       </View>
 
-      {/* Résultats */}
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.accent} />
+          <ActivityIndicator size="large" color={palette.green} />
         </View>
       ) : results.length > 0 ? (
         <FlatList
@@ -61,9 +55,7 @@ export default function SearchScreen() {
           renderItem={({ item }) => (
             <MediaCard
               item={item}
-              onPress={(i) =>
-                router.push({ pathname: '/PlayerScreen', params: { id: i.id_media } })
-              }
+              onPress={(i) => router.push({ pathname: '/PlayerScreen', params: { id: i.id_media } })}
             />
           )}
           contentContainerStyle={styles.list}
@@ -71,46 +63,43 @@ export default function SearchScreen() {
         />
       ) : query.length >= 2 ? (
         <View style={styles.center}>
-          <Ionicons name="search-outline" size={52} color={colors.textMuted} />
-          <Text style={styles.noResult}>Aucun résultat pour « {query} »</Text>
+          <View style={styles.emptyIcon}>
+            <Ionicons name="search-outline" size={36} color={palette.grey} />
+          </View>
+          <Text style={styles.noResult}>Aucun résultat pour</Text>
+          <Text style={styles.noResultQuery}>« {query} »</Text>
         </View>
       ) : (
         <View style={styles.center}>
-          <Ionicons name="search" size={52} color={colors.border} />
-          <Text style={styles.hint}>Tapez pour chercher…</Text>
+          <View style={styles.emptyIcon}>
+            <Ionicons name="search" size={36} color={palette.greyLight} />
+          </View>
+          <Text style={styles.hint}>{s.hint || 'Tapez pour chercher…'}</Text>
         </View>
       )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+const cs = (p) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: p.white },
   bar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: spacing.base, paddingVertical: spacing.sm, gap: spacing.sm,
+    borderBottomWidth: 1, borderBottomColor: p.greyLight,
   },
   backBtn: { padding: 4 },
   inputWrap: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.bgElevated,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.md,
-    height: 42,
+    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: p.whiteOff, borderRadius: radius.full,
+    paddingHorizontal: spacing.md, height: 42,
+    borderWidth: 1, borderColor: p.greyLight,
   },
-  inputIcon: { marginRight: 8 },
-  input: {
-    flex: 1,
-    color: colors.text,
-    fontSize: typography.base,
-  },
+  input: { flex: 1, color: p.dark, fontSize: typography.base },
   list: { paddingTop: spacing.sm, paddingBottom: 40 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: spacing.md },
-  noResult: { color: colors.textMuted, fontSize: 15, textAlign: 'center' },
-  hint: { color: colors.textMuted, fontSize: 15 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: spacing.sm },
+  emptyIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: p.whiteOff, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: p.greyLight, marginBottom: spacing.sm },
+  noResult: { color: p.grey, fontSize: 15 },
+  noResultQuery: { color: p.dark, fontSize: typography.base, fontWeight: '600' },
+  hint: { color: p.grey, fontSize: 15 },
 });
