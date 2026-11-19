@@ -3,11 +3,11 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import {
   ActivityIndicator, Alert, Dimensions, Image, Linking,
-  ScrollView, Share, StyleSheet, Text, TouchableOpacity, View,
+  Share, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import YoutubeIframe from '../src/components/YoutubeIframe';
-import MediaCard from '../src/components/MediaCard';
+import WatchDetails from '../src/components/WatchDetails';
 import { useMedia } from '../src/hooks/useMedias';
 import { useOfflineMedia } from '../src/hooks/useOfflineMedia';
 import { radius, spacing, typography } from '../src/utils/theme';
@@ -265,7 +265,7 @@ export default function PlayerScreen() {
   };
 
   const renderDownloadIcon = () => {
-    if (offline) return <Ionicons name="cloud-done" size={20} color={palette.green} />;
+    if (offline) return <Ionicons name="checkmark-circle" size={18} color={palette.green} />;
     if (downloading) {
       return (
         <View style={styles.dlProgressWrap}>
@@ -274,10 +274,10 @@ export default function PlayerScreen() {
         </View>
       );
     }
-    return <Ionicons name="download-outline" size={20} color={palette.greyDark} />;
+    return <Ionicons name="arrow-down-circle-outline" size={18} color={palette.dark} />;
   };
 
-  const downloadLabel = offline ? 'Hors-ligne' : downloading ? 'Chargement…' : 'Télécharger';
+  const downloadLabel = offline ? 'Téléchargé' : downloading ? 'Téléchargement…' : 'Télécharger';
 
   if (loading) {
     return (
@@ -323,9 +323,15 @@ export default function PlayerScreen() {
         <TouchableOpacity style={styles.backCircle} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={20} color={palette.dark} />
         </TouchableOpacity>
-        <Text style={styles.topTitle} numberOfLines={1}>{media.titre}</Text>
-        <TouchableOpacity style={styles.backCircle} onPress={() => router.push('/OfflineScreen')}>
-          <Ionicons name="cloud-download-outline" size={18} color={palette.greyDark} />
+        <View style={styles.brand}>
+          <Image source={require('../assets/logo.png')} style={styles.brandLogo} resizeMode="contain" />
+          <Text style={styles.brandText}>NUFOTEC</Text>
+        </View>
+        <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/SearchScreen')}>
+          <Ionicons name="search-outline" size={21} color={palette.dark} />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/OfflineScreen')}>
+          <Ionicons name="cloud-download-outline" size={21} color={palette.dark} />
         </TouchableOpacity>
       </View>
 
@@ -334,72 +340,16 @@ export default function PlayerScreen() {
         {offline && <OfflineBadge />}
       </View>
 
-      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.titleSection}>
-          <View style={styles.titleTopRow}>
-            {media.categorie ? (
-              <View style={styles.catPill}>
-                <Text style={styles.catPillText}>{media.categorie_label || media.categorie}</Text>
-              </View>
-            ) : null}
-            <View style={styles.statItem}>
-              <Ionicons name="eye-outline" size={13} color={palette.greyDark} />
-              <Text style={styles.statText}>{media.views_formatted || '0'} vues</Text>
-            </View>
-          </View>
-          <Text style={styles.title}>{media.titre}</Text>
-          {media.credits ? (
-            <View style={styles.creditRow}>
-              <Ionicons name="person-outline" size={13} color={palette.greyDark} />
-              <Text style={styles.creditText}>{media.credits}</Text>
-            </View>
-          ) : null}
-
-          <View style={styles.actionsRow}>
-            <TouchableOpacity style={styles.actionBtn} onPress={handleShare}>
-              <Ionicons name="share-social-outline" size={20} color={palette.greyDark} />
-              <Text style={styles.actionLabel}>Partager</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionBtn, offline && styles.actionBtnOffline, downloading && styles.actionBtnDownloading]}
-              onPress={handleDownload} activeOpacity={0.75}
-            >
-              {renderDownloadIcon()}
-              <Text style={[styles.actionLabel, offline && styles.actionLabelOffline, downloading && styles.actionLabelActive]}>
-                {downloadLabel}
-              </Text>
-              {downloading && downloadProgress > 0 && (
-                <View style={styles.dlBar}>
-                  <View style={[styles.dlBarFill, { width: `${downloadProgress}%` }]} />
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.divider} />
-
-        {media.description ? (
-          <View style={styles.descBox}>
-            <Text style={styles.descText}>{media.description}</Text>
-          </View>
-        ) : null}
-
-        {similar.length > 0 && (
-          <View style={styles.similarSection}>
-            <View style={styles.sectionHeaderRow}>
-              <View style={styles.sectionAccent} />
-              <Text style={styles.sectionTitle}>Suggestions</Text>
-            </View>
-            {similar.map((item) => (
-              <MediaCard key={item.slug || item.id_media} item={item}
-                onPress={(i) => router.push({ pathname: '/PlayerScreen', params: { slug: i.slug || i.id_media } })} />
-            ))}
-          </View>
-        )}
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
+      <WatchDetails
+        media={media}
+        similar={similar}
+        onShare={handleShare}
+        onDownload={handleDownload}
+        downloadIcon={renderDownloadIcon()}
+        downloadLabel={downloadLabel}
+        downloadActive={offline || downloading}
+        downloadProgress={downloadProgress}
+      />
     </View>
   );
 }
@@ -412,7 +362,6 @@ const s = (p) => StyleSheet.create({
   topBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: spacing.base, paddingVertical: spacing.sm,
-    borderBottomWidth: 1, borderBottomColor: p.greyLight,
     backgroundColor: p.white,
   },
   backCircle: {
@@ -420,6 +369,10 @@ const s = (p) => StyleSheet.create({
     backgroundColor: p.whiteOff, borderWidth: 1, borderColor: p.greyLight,
     justifyContent: 'center', alignItems: 'center',
   },
+  brand: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: spacing.sm },
+  brandLogo: { width: 26, height: 26 },
+  brandText: { color: p.dark, fontSize: typography.lg, fontWeight: '900', letterSpacing: -0.5 },
+  iconBtn: { width: 38, height: 38, justifyContent: 'center', alignItems: 'center' },
   topTitle: { color: p.dark, fontSize: typography.base, fontWeight: '700', flex: 1, textAlign: 'center', marginHorizontal: spacing.sm },
 
   playerWrap: { width: SCREEN_W, height: PLAYER_H, backgroundColor: '#000' },

@@ -207,6 +207,10 @@ class ApiService {
     return this.request('site/parametres');
   }
 
+  getSocialLinks() {
+    return this.request('reseaux-sociaux', {}, 1, true);
+  }
+
   getTestimonials() {
     return this.request('temoignages', {}, 1, true);
   }

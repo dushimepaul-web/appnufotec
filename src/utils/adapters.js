@@ -1,5 +1,6 @@
 import { BASE_URL, toWhatsAppNumber } from './api';
 import { extractYoutubeId } from './youtube';
+import { decodeEntities, formatNumber } from './format';
 
 function formatViews(value) {
   const n = Number(value) || 0;
@@ -58,7 +59,7 @@ export function adaptMedia(item, detail = false) {
   const type = mediaType(item);
   const urls = mediaUrls(item);
   const youtubeId = item.youtube_id || extractYoutubeId(item.lien_externe || item.lien || item.file_url);
-  const thumbnail = item.miniature || (youtubeId ? `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg` : null);
+  const thumbnail = decodeEntities(item.miniature) || (youtubeId ? `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg` : null);
   const vues = item.stats?.vues ?? 0;
 
   return {
@@ -71,7 +72,9 @@ export function adaptMedia(item, detail = false) {
     categorie_label: CATEGORY_LABELS[item.categorie] || item.categorie || null,
     titre: item.titre || '',
     thumbnail_url: thumbnail,
-    miniature: item.miniature,
+    miniature: decodeEntities(item.miniature),
+    published_at: item.created_at || item.date || null,
+    comments_count: item.stats?.commentaires ?? 0,
     file_url: urls.file_url,
     stream_url: urls.stream_url,
     preview_url: urls.preview_url,
@@ -90,18 +93,23 @@ export function adaptMedia(item, detail = false) {
 }
 
 function formatBif(value) {
-  const n = Math.round(Number(value) || 0);
-  return `${String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} BIF`;
+  return `${formatNumber(value)} BIF`;
 }
 
 function formatUsd(value) {
-  return `${(Number(value) || 0).toFixed(2)} USD`;
+  const n = Number(value) || 0;
+  return `${Number.isInteger(n) ? n : n.toFixed(2)} USD`;
 }
+
+const hasPrice = (v) => v != null && v !== '' && Number(v) > 0;
 
 export function adaptProduct(item, detail = false) {
   if (!item) return null;
   const categorie = item.categorie || null;
-  const price = item.prix_bif != null ? formatBif(item.prix_bif) : item.prix_usd != null ? formatUsd(item.prix_usd) : 'Prix sur demande';
+  const bif = hasPrice(item.prix_bif) ? formatBif(item.prix_bif) : null;
+  const usd = hasPrice(item.prix_usd) ? formatUsd(item.prix_usd) : null;
+  const price = bif || usd || 'Prix sur demande';
+  const galerie = (item.galerie || []).map((g) => (typeof g === 'string' ? g : g?.url || g?.image)).filter(Boolean);
 
   return {
     ...item,
@@ -111,6 +119,12 @@ export function adaptProduct(item, detail = false) {
     title: item.titre || '',
     price,
     image: item.image || null,
+    images: [item.image, ...galerie].filter(Boolean),
+    price_secondary: bif && usd ? `≈ ${usd}` : null,
+    has_price: !!(bif || usd),
+    in_stock: item.en_stock !== false,
+    is_new: !!item.nouveau,
+    health_warning: item.avertissement_sante || null,
     description: item.description || item.extrait || '',
     in_vedette: item.vedette ? 1 : 0,
     vedette: !!item.vedette,

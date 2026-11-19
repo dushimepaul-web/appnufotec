@@ -1,12 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import { useSettings } from '../src/contexts/SettingsContext';
 import { useTheme } from '../src/contexts/ThemeContext';
-import { toWhatsAppNumber, whatsappUrl } from '../src/utils/api';
+import api, { toWhatsAppNumber, whatsappUrl } from '../src/utils/api';
 import { radius, spacing, typography } from '../src/utils/theme';
 
 const SOCIAL_ICONS = {
@@ -15,6 +15,8 @@ const SOCIAL_ICONS = {
   instagram: { icon: 'logo-instagram', color: '#E4405F' },
   youtube: { icon: 'logo-youtube', color: '#FF0000' },
   linkedin: { icon: 'logo-linkedin', color: '#0A66C2' },
+  tiktok: { icon: 'logo-tiktok', color: '#111111' },
+  whatsapp: { icon: 'logo-whatsapp', color: '#25D366' },
 };
 
 export default function ProfileScreen() {
@@ -23,7 +25,22 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const settings = useSettings();
   const contact = settings.contact;
-  const socialMedia = settings.social_media || [];
+  const [socialMedia, setSocialMedia] = useState([]);
+
+  useEffect(() => {
+    api.getSocialLinks()
+      .then((res) => {
+        if (!res?.success || !Array.isArray(res.data)) return;
+        setSocialMedia(res.data.filter((r) => r.url).map((r, i) => ({
+          id: `${r.plateforme || 'lien'}-${i}`,
+          platform: r.plateforme,
+          label: r.libelle || r.plateforme,
+          url: r.url,
+          followers: r.abonnes,
+        })));
+      })
+      .catch(() => {});
+  }, []);
 
   const openWhatsApp = () => {
     const msg = `Bonjour ${settings.app_name} ${settings.app_subtitle}, je vous contacte depuis l'application.`;
@@ -94,7 +111,7 @@ export default function ProfileScreen() {
                     </View>
                     <View style={styles.socialInfo}>
                       <Text style={styles.socialLabel}>{item.label}</Text>
-                      <Text style={styles.socialUrl} numberOfLines={1}>{item.url}</Text>
+                      <Text style={styles.socialUrl} numberOfLines={1}>{item.followers ? `${item.followers} abonnés · ` : ''}{item.url.replace(/^https?:\/\/(www\.)?/, '')}</Text>
                     </View>
                     <Ionicons name="open-outline" size={16} color={palette.grey} />
                   </TouchableOpacity>

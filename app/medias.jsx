@@ -1,234 +1,155 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator, Animated, FlatList, Keyboard, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View,
+  ActivityIndicator, FlatList, Image, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BottomNav from '../src/components/BottomNav';
-import CategoryChips from '../src/components/CategoryChips';
 import MediaCard from '../src/components/MediaCard';
-import { useSettings } from '../src/contexts/SettingsContext';
+import ThemeToggle from '../src/components/ThemeToggle';
+import { useNotifications } from '../src/contexts/NotificationContext';
 import { useTheme } from '../src/contexts/ThemeContext';
 import { useMedias } from '../src/hooks/useMedias';
-import { spacing, typography } from '../src/utils/theme';
+import { radius, spacing, typography } from '../src/utils/theme';
 
-const TYPE_TABS = ['all', 'video', 'audio', 'pdf'];
-
-function SearchBar({ query, onChange, onSearch, onClose, palette }) {
-  const inputRef = useRef(null);
-  const slideAnim = useState(() => new Animated.Value(0))[0];
-
-  useEffect(() => {
-    Animated.spring(slideAnim, {
-      toValue: 1, useNativeDriver: true, friction: 9, tension: 50,
-    }).start();
-    setTimeout(() => inputRef.current?.focus(), 100);
-  }, [slideAnim]);
-
-  const onClosePress = () => {
-    Animated.timing(slideAnim, {
-      toValue: 0, duration: 180, useNativeDriver: true,
-    }).start(() => onClose());
-  };
-
-  return (
-    <Animated.View style={{
-      paddingHorizontal: spacing.lg, marginBottom: spacing.md, marginTop: spacing.sm,
-      transform: [{ translateY: slideAnim.interpolate({ inputRange: [0, 1], outputRange: [-20, 0] }) }],
-      opacity: slideAnim,
-    }}>
-      <View style={{
-        flexDirection: 'row', alignItems: 'center',
-        backgroundColor: palette.whiteOff, borderRadius: 14,
-        height: 48, borderWidth: 1, borderColor: palette.greyLight,
-      }}>
-        <TouchableOpacity onPress={onSearch} activeOpacity={0.7} style={{ paddingLeft: 14, paddingRight: 6, height: 48, justifyContent: 'center' }}>
-          <Ionicons name="search" size={20} color={palette.green} />
-        </TouchableOpacity>
-        <TextInput
-          ref={inputRef}
-          value={query}
-          onChangeText={onChange}
-          placeholder="Rechercher un média..."
-          placeholderTextColor={palette.grey}
-          returnKeyType="search"
-          onSubmitEditing={onSearch}
-          style={{ flex: 1, paddingHorizontal: 8, color: palette.dark, fontSize: 14, fontWeight: '500', height: 48 }}
-        />
-        <TouchableOpacity activeOpacity={0.7} style={{
-          flexDirection: 'row', alignItems: 'center', gap: 5,
-          backgroundColor: palette.white, borderRadius: 10,
-          paddingHorizontal: 12, paddingVertical: 8, marginRight: 5,
-          borderWidth: 1, borderColor: palette.greyLight,
-          shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
-        }}>
-          <Ionicons name="options-outline" size={16} color={palette.green} />
-          <Text style={{ color: palette.dark, fontSize: 12, fontWeight: '600' }}>Filtrer</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={onClosePress} activeOpacity={0.7} style={{ paddingHorizontal: 10, height: 48, justifyContent: 'center' }}>
-          <Ionicons name="close" size={20} color={palette.grey} />
-        </TouchableOpacity>
-      </View>
-    </Animated.View>
-  );
-}
+// Filtres façon YouTube. Les deux derniers mènent vers d'autres écrans.
+const CHIPS = [
+  { key: 'all', label: 'Tout' },
+  { key: 'video', label: 'Vidéos', icon: 'logo-youtube' },
+  { key: 'audio', label: 'Audio', icon: 'musical-notes' },
+  { key: 'pdf', label: 'Documents', icon: 'document-text' },
+  { key: 'temoignages', label: 'Témoignages', icon: 'star', route: '/temoignages' },
+  { key: 'downloads', label: 'Téléchargés', icon: 'cloud-download', route: '/OfflineScreen' },
+];
 
 export default function MediasScreen() {
   const { palette } = useTheme();
   const styles = useMemo(() => s(palette), [palette]);
-  const m = useSettings().media;
-  const [selectedTab, setSelectedTab] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchVisible, setSearchVisible] = useState(false);
+  const insets = useSafeAreaInsets();
+  const { unreadCount } = useNotifications();
+  const [selected, setSelected] = useState('all');
 
-  const isTypeTab = TYPE_TABS.includes(selectedTab);
-  const typeParam = isTypeTab ? selectedTab : 'all';
-  const categoryParam = !isTypeTab ? selectedTab : undefined;
-
-  const { data = [], loading, refreshing, loadingMore, error: fetchError, refresh, loadMore } = useMedias({
-    type: typeParam,
-    category: categoryParam,
-    limit: 20,
-    q: searchTerm || undefined,
-  });
+  const { data = [], loading, refreshing, loadingMore, error, refresh, loadMore } = useMedias({ type: selected, limit: 20 });
 
   const handlePress = useCallback((item) => {
-    router.push({
-      pathname: '/PlayerScreen',
-      params: { slug: item.slug || item.id_media },
-    });
+    router.push({ pathname: '/PlayerScreen', params: { slug: item.slug || item.id_media } });
   }, []);
 
-  const handleSearch = useCallback(() => {
-    Keyboard.dismiss();
-    setSearchTerm(searchQuery.trim());
-  }, [searchQuery]);
-
-  const renderItem = useCallback(
-    ({ item }) => <MediaCard item={item} onPress={handlePress} />,
-    [handlePress]
-  );
-
-  const renderFooter = () => {
-    if (!loadingMore) return <View style={{ height: spacing.xxl }} />;
-    return (
-      <View style={styles.footerLoader}>
-        <ActivityIndicator size="small" color={palette.green} />
-      </View>
-    );
+  const onChip = (chip) => {
+    if (chip.route) { router.push(chip.route); return; }
+    setSelected(chip.key);
   };
+
+  const renderItem = useCallback(({ item }) => <MediaCard item={item} onPress={handlePress} />, [handlePress]);
 
   const renderEmpty = () => {
     if (loading) return null;
-    if (fetchError) {
-      return (
-        <View style={styles.emptyWrap}>
-          <View style={[styles.emptyIconBox, { backgroundColor: `${palette.red}08` }]}>
-            <Ionicons name="cloud-offline-outline" size={32} color={palette.red} />
-          </View>
-          <Text style={[styles.emptyTitle, { color: palette.dark }]}>Vous êtes hors connexion</Text>
-          <Text style={styles.emptySub}>Connectez-vous à Internet pour voir les médias</Text>
-        </View>
-      );
-    }
-    if (searchTerm.trim() && data.length === 0) {
-      return (
-        <View style={styles.emptyWrap}>
-          <View style={[styles.emptyIconBox, { backgroundColor: `${palette.gold}10` }]}>
-            <Ionicons name="search-outline" size={32} color={palette.gold} />
-          </View>
-          <Text style={[styles.emptyTitle, { color: palette.dark }]}>Aucun résultat</Text>
-          <Text style={styles.emptySub}>Aucun média trouvé pour « {searchTerm} »</Text>
-        </View>
-      );
-    }
     return (
-      <View style={styles.emptyWrap}>
-        <View style={styles.emptyIconBox}>
-          <Text style={styles.emptyEmoji}>🎬</Text>
+      <View style={styles.empty}>
+        <View style={styles.emptyIcon}>
+          <Ionicons name={error ? 'cloud-offline-outline' : 'play-circle-outline'} size={34} color={error ? palette.red : palette.green} />
         </View>
-        <Text style={styles.emptyTitle}>Aucun média disponible</Text>
-        <Text style={styles.emptySub}>Explorez d&apos;autres catégories ou revenez plus tard</Text>
+        <Text style={styles.emptyTitle}>{error ? 'Vous êtes hors connexion' : 'Aucun média disponible'}</Text>
+        <Text style={styles.emptySub}>
+          {error ? 'Connectez-vous à Internet pour voir les médias.' : 'Explorez une autre catégorie ou revenez plus tard.'}
+        </Text>
+        {error ? (
+          <TouchableOpacity style={styles.retry} onPress={refresh}><Text style={styles.retryText}>Réessayer</Text></TouchableOpacity>
+        ) : null}
       </View>
     );
   };
 
-  const ListHeader = useCallback(
-    () => (
-      <CategoryChips selected={selectedTab} onSelect={setSelectedTab} onSearchPress={() => setSearchVisible(v => !v)} searchActive={searchVisible} />
-    ),
-    [selectedTab, searchVisible]
-  );
-
   return (
     <View style={styles.root}>
-      <View style={styles.topSection}>
-        <Text style={styles.pageTitle}>{m.title}</Text>
-        <Text style={styles.pageSub}>{m.subtitle}</Text>
+      <View style={[styles.topBar, { paddingTop: insets.top + 6 }]}>
+        <TouchableOpacity style={styles.brand} onPress={() => router.push('/')} activeOpacity={0.8}>
+          <Image source={require('../assets/logo.png')} style={styles.logo} resizeMode="contain" />
+          <Text style={styles.brandText}>NUFOTEC</Text>
+          <Text style={styles.brandSub}>Médias</Text>
+        </TouchableOpacity>
+        <View style={styles.actions}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/SearchScreen')}>
+            <Ionicons name="search-outline" size={22} color={palette.dark} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/NotificationsScreen')}>
+            <Ionicons name="notifications-outline" size={22} color={palette.dark} />
+            {unreadCount > 0 ? (
+              <View style={styles.badge}><Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text></View>
+            ) : null}
+          </TouchableOpacity>
+          <ThemeToggle inline />
+        </View>
       </View>
 
-      {searchVisible && <SearchBar query={searchQuery} onChange={setSearchQuery} onSearch={handleSearch} onClose={() => { setSearchQuery(''); setSearchTerm(''); setSearchVisible(false); }} palette={palette} />}
+      <View style={styles.chipsBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+          {CHIPS.map((chip) => {
+            const active = selected === chip.key;
+            return (
+              <TouchableOpacity key={chip.key} style={[styles.chip, active && styles.chipActive]} onPress={() => onChip(chip)} activeOpacity={0.8}>
+                {chip.icon ? <Ionicons name={chip.icon} size={14} color={active ? palette.white : chip.route ? palette.gold : palette.dark} /> : null}
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>{chip.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
 
       <FlatList
         data={data}
         keyExtractor={(item, index) => (item.slug ? String(item.slug) : `idx-${index}`)}
         renderItem={renderItem}
-        ListHeaderComponent={ListHeader}
         ListEmptyComponent={renderEmpty}
-        ListFooterComponent={renderFooter}
+        ListFooterComponent={loadingMore ? <ActivityIndicator style={{ paddingVertical: spacing.xl }} color={palette.green} /> : <View style={{ height: 90 }} />}
         onEndReached={loadMore}
-        onEndReachedThreshold={0.5}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={refresh}
-            tintColor={palette.green}
-            colors={[palette.green]}
-          />
-        }
+        onEndReachedThreshold={0.6}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={palette.green} colors={[palette.green]} />}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={{ paddingTop: spacing.sm }}
       />
 
-      {loading && data.length === 0 && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color={palette.green} />
-        </View>
-      )}
+      {loading && data.length === 0 ? (
+        <View style={styles.loading}><ActivityIndicator size="large" color={palette.green} /></View>
+      ) : null}
 
       <BottomNav />
-
-      <TouchableOpacity onPress={() => router.push('/login')} activeOpacity={0.85} style={{
-        position: 'absolute', bottom: 120, right: 20,
-        width: 54, height: 54, borderRadius: 27,
-        backgroundColor: palette.green,
-        justifyContent: 'center', alignItems: 'center',
-        shadowColor: palette.green, shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.4, shadowRadius: 16, elevation: 10,
-        zIndex: 999,
-      }}>
-        <Ionicons name="chatbubble-ellipses" size={26} color="#fff" />
-      </TouchableOpacity>
     </View>
   );
 }
 
 const s = (p) => StyleSheet.create({
   root: { flex: 1, backgroundColor: p.white },
-  topSection: {
-    paddingHorizontal: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.md,
-    backgroundColor: p.white, borderBottomWidth: 1, borderBottomColor: p.greyLight,
+  topBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: spacing.md, paddingBottom: spacing.sm, backgroundColor: p.white,
   },
-  pageTitle: { fontSize: 28, fontWeight: '900', color: p.dark, letterSpacing: 0.5 },
-  pageSub: { fontSize: typography.sm, color: p.greyDark, marginTop: 2 },
-  list: { paddingTop: spacing.sm, paddingBottom: spacing.xxl },
-  footerLoader: { paddingVertical: spacing.xl, alignItems: 'center' },
-  emptyWrap: { flex: 1, alignItems: 'center', paddingTop: 80, paddingHorizontal: spacing.xl },
-  emptyIconBox: { width: 80, height: 80, borderRadius: 40, backgroundColor: `${p.green}08`, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.md },
-  emptyEmoji: { fontSize: 32 },
-  emptyTitle: { fontSize: typography.lg, fontWeight: '700', color: p.dark, marginBottom: spacing.xs, textAlign: 'center' },
-  emptySub: { fontSize: typography.sm, color: p.greyDark, textAlign: 'center', lineHeight: 18 },
-  loadingOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: p.white },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  logo: { width: 30, height: 30 },
+  brandText: { color: p.dark, fontSize: 20, fontWeight: '900', letterSpacing: -0.6 },
+  brandSub: { color: p.gold, fontSize: typography.sm, fontWeight: '700', marginTop: 4 },
+  actions: { flexDirection: 'row', alignItems: 'center' },
+  iconBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+  badge: {
+    position: 'absolute', top: 5, right: 5, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 3,
+    backgroundColor: p.red, justifyContent: 'center', alignItems: 'center',
+  },
+  badgeText: { color: '#fff', fontSize: 9, fontWeight: '900' },
+  chipsBar: { backgroundColor: p.white, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: p.greyLight },
+  chips: { gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  chip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, height: 34, paddingHorizontal: 14,
+    borderRadius: radius.sm, backgroundColor: p.whiteOff,
+  },
+  chipActive: { backgroundColor: p.dark },
+  chipText: { color: p.dark, fontSize: typography.sm + 1, fontWeight: '600' },
+  chipTextActive: { color: p.white },
+  empty: { alignItems: 'center', paddingTop: 80, paddingHorizontal: spacing.xl, gap: spacing.sm },
+  emptyIcon: { width: 76, height: 76, borderRadius: 38, backgroundColor: p.greenSoft, justifyContent: 'center', alignItems: 'center' },
+  emptyTitle: { color: p.dark, fontSize: typography.lg, fontWeight: '700', textAlign: 'center' },
+  emptySub: { color: p.greyDark, fontSize: typography.sm, textAlign: 'center' },
+  retry: { marginTop: spacing.sm, backgroundColor: p.green, paddingHorizontal: 20, paddingVertical: 10, borderRadius: radius.full },
+  retryText: { color: '#fff', fontWeight: '700' },
+  loading: { ...StyleSheet.absoluteFillObject, top: 120, justifyContent: 'flex-start', paddingTop: 80, alignItems: 'center' },
 });
-

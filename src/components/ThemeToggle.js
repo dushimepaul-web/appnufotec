@@ -9,7 +9,7 @@ import { radius, spacing } from '../utils/theme';
 // Écrans dont le coin supérieur droit contient déjà des boutons : le bouton
 // flottant les recouvrait (avatar du Header, bouton téléchargements du lecteur,
 // « Tout lire », champ de recherche…). Le Header affiche sa propre version.
-const HIDDEN_ON = ['/PlayerScreen', '/ExploreScreen', '/LibraryScreen', '/NotificationsScreen', '/SearchScreen'];
+const HIDDEN_ON = ['/medias', '/produits', '/product-detail', '/PlayerScreen', '/ExploreScreen', '/LibraryScreen', '/NotificationsScreen', '/SearchScreen'];
 
 export default function ThemeToggle({ inline = false }) {
   const insets = useSafeAreaInsets();
