@@ -8,6 +8,7 @@ import { timeAgo } from '../utils/format';
 import { radius, spacing, typography } from '../utils/theme';
 import { getDefaultThumbnail } from '../utils/thumbnails';
 import { extractYoutubeId } from '../utils/youtube';
+import { MediaThumb } from './MediaDisc';
 
 const LOGO = require('../../assets/logo.png');
 const CHANNEL = 'NUFOTEC BURUNDI';
@@ -45,9 +46,14 @@ export default function MediaCard({ item, onPress, horizontal = false, variant =
     else router.push({ pathname: '/PlayerScreen', params: { slug: item.slug || item.id_media } });
   };
 
-  const thumbnail = (style, iconSize = 34) => (
+  // Audios et documents : disque NUFOTEC (comme sur le site). Vidéos : miniature.
+  const useDisc = ['audio', 'pdf', 'document'].includes(item.type);
+
+  const thumbnail = (style, small = false) => (
     <View style={[styles.thumbBox, style]}>
-      {hasThumb ? (
+      {useDisc ? (
+        <MediaThumb type={item.type} small={small} />
+      ) : hasThumb ? (
         <Image source={{ uri: item.thumbnail_url }} style={styles.thumbImg} resizeMode="cover" />
       ) : (
         <View style={styles.placeholder}>
@@ -56,14 +62,11 @@ export default function MediaCard({ item, onPress, horizontal = false, variant =
       )}
       {item.duration_formatted ? (
         <View style={styles.duration}><Text style={styles.durationText}>{item.duration_formatted}</Text></View>
-      ) : (
+      ) : !useDisc ? (
         <View style={styles.duration}>
-          <Ionicons name={isYoutube ? 'logo-youtube' : typeInfo.icon} size={11} color="#fff" />
+          <Ionicons name={isYoutube ? 'logo-youtube' : typeInfo.icon} size={11} color="#FFFFFF" />
           <Text style={styles.durationText}>{isYoutube ? 'YouTube' : typeInfo.label}</Text>
         </View>
-      )}
-      {!hasThumb && item.type === 'audio' ? (
-        <View style={styles.centerIcon}><Ionicons name="musical-notes" size={iconSize} color="rgba(255,255,255,0.9)" /></View>
       ) : null}
     </View>
   );
@@ -71,7 +74,7 @@ export default function MediaCard({ item, onPress, horizontal = false, variant =
   if (horizontal) {
     return (
       <TouchableOpacity style={styles.cardH} onPress={handlePress} activeOpacity={0.85}>
-        {thumbnail(styles.thumbH, 26)}
+        {thumbnail(styles.thumbH, true)}
         <Text style={styles.titleH} numberOfLines={2}>{item.titre}</Text>
         <Text style={styles.meta} numberOfLines={1}>{meta}</Text>
       </TouchableOpacity>
@@ -81,7 +84,7 @@ export default function MediaCard({ item, onPress, horizontal = false, variant =
   if (variant === 'compact') {
     return (
       <TouchableOpacity style={styles.compact} onPress={handlePress} activeOpacity={0.85}>
-        {thumbnail(styles.thumbCompact, 22)}
+        {thumbnail(styles.thumbCompact, true)}
         <View style={styles.compactInfo}>
           <Text style={styles.titleCompact} numberOfLines={2}>{item.titre}</Text>
           <Text style={styles.meta} numberOfLines={1}>{CHANNEL}</Text>
@@ -113,12 +116,11 @@ const s = (p) => StyleSheet.create({
   thumbImg: { width: '100%', height: '100%' },
   placeholder: { flex: 1, backgroundColor: p.greenDark, justifyContent: 'center', alignItems: 'center' },
   placeholderImg: { width: '60%', height: '80%', opacity: 0.9 },
-  centerIcon: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center' },
   duration: {
     position: 'absolute', right: 6, bottom: 6, flexDirection: 'row', alignItems: 'center', gap: 3,
-    backgroundColor: 'rgba(0,0,0,0.8)', borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2,
+    backgroundColor: 'rgba(15,36,23,0.85)', borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2,
   },
-  durationText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  durationText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
   meta: { color: p.greyDark, fontSize: typography.xs + 1, marginTop: 2 },
 
   feed: { marginBottom: spacing.lg },

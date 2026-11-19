@@ -6,6 +6,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { Dimensions, View } from 'react-native';
+import { BRAND } from '../utils/theme';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -18,7 +19,7 @@ export default function YoutubeIframe({ videoId, height, width }) {
   const h = height || (SCREEN_W * 9) / 16;
 
   return (
-    <View style={{ width: w, height: h, backgroundColor: '#000' }}>
+    <View style={{ width: w, height: h, backgroundColor: BRAND.ink }}>
       <iframe
         src={embedUrl}
         style={{ width: '100%', height: '100%', border: 'none' }}

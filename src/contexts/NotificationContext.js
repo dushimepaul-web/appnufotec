@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import api from '../utils/api';
 import { getStoredAuth } from '../services/auth';
+import { BRAND } from '../utils/theme';
 
 let FileSystem = null;
 try {
@@ -18,13 +19,13 @@ const NOTIF_FILE = FileSystem?.documentDirectory
   : null;
 
 const NOTIF_TEMPLATES = {
-  video: { icon: '🎥', color: '#0C7B45' },
-  audio: { icon: '🎧', color: '#D4A843' },
-  pdf: { icon: '📄', color: '#E53935' },
-  product: { icon: '🛒', color: '#0C7B45' },
-  update: { icon: '📢', color: '#F57F17' },
-  training: { icon: '📚', color: '#8E24AA' },
-  consultation: { icon: '🩺', color: '#D4A843' },
+  video: { icon: '🎥', color: BRAND.green },
+  audio: { icon: '🎧', color: BRAND.gold },
+  pdf: { icon: '📄', color: BRAND.red },
+  product: { icon: '🛒', color: BRAND.green },
+  update: { icon: '📢', color: BRAND.gold },
+  training: { icon: '📚', color: BRAND.green },
+  consultation: { icon: '🩺', color: BRAND.gold },
 };
 
 const normalizeNotification = (item, index, savedById) => {

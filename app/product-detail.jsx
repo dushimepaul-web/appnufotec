@@ -154,10 +154,10 @@ export default function ProductDetailScreen() {
           ) : null}
           <View style={[styles.floatBar, { top: insets.top + 10 }]}>
             <TouchableOpacity style={styles.floatBtn} onPress={() => router.back()}>
-              <Ionicons name="arrow-back" size={20} color="#1A1A1A" />
+              <Ionicons name="arrow-back" size={20} color={palette.dark} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.floatBtn} onPress={handleShare}>
-              <Ionicons name="share-social-outline" size={19} color="#1A1A1A" />
+              <Ionicons name="share-social-outline" size={19} color={palette.dark} />
             </TouchableOpacity>
           </View>
         </View>

@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import YoutubeIframe from '../src/components/YoutubeIframe';
 import WatchDetails from '../src/components/WatchDetails';
+import { AUDIO_DECK_HEIGHT, AudioDeck } from '../src/components/MediaDisc';
 import { PlayerActionsContext } from '../src/contexts/PlayerContext';
 import { useMedia } from '../src/hooks/useMedias';
 import { useOfflineMedia } from '../src/hooks/useOfflineMedia';
@@ -18,7 +19,6 @@ import { radius, spacing, typography } from '../src/utils/theme';
 import { useTheme } from '../src/contexts/ThemeContext';
 import api, { resolveUrl, SITE_URL } from '../src/utils/api';
 import { extractYoutubeId } from '../src/utils/youtube';
-import { getDefaultThumbnail } from '../src/utils/thumbnails';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const PLAYER_H = (SCREEN_W * 9) / 16;
@@ -102,107 +102,6 @@ function PdfPlayer({ url, titre, isOfflineUri }) {
   );
 }
 
-function AudioPlayer({ media, isPlaying, onPlayPause, player, isOffline: isOff, position, duration }) {
-  const { palette } = useTheme();
-  const styles = useMemo(() => s(palette), [palette]);
-  const [isSeeking, setIsSeeking] = useState(false);
-  const [seekValue, setSeekValue] = useState(0);
-  const [trackWidth, setTrackWidth] = useState(0);
-
-  const fmt = (ms) => {
-    if (!ms || ms < 0) return '0:00';
-    const s = Math.floor(ms / 1000);
-    const m = Math.floor(s / 60);
-    return `${m}:${String(s % 60).padStart(2, '0')}`;
-  };
-
-  const progress = duration > 0 ? position / duration : 0;
-
-  const seekTo = async (ratio) => {
-    if (!player || duration <= 0) return;
-    try { await player.seekTo((ratio * duration) / 1000); } catch {}
-  };
-
-  const skip = async (deltaMs) => {
-    if (!player || duration <= 0) return;
-    try {
-      const next = Math.max(0, Math.min(position + deltaMs, duration));
-      await player.seekTo(next / 1000);
-    } catch {}
-  };
-
-  return (
-    <View style={styles.audioContainer}>
-      {media.thumbnail_url ? (
-        <Image source={{ uri: media.thumbnail_url }} style={StyleSheet.absoluteFill} blurRadius={22} />
-      ) : null}
-      <View style={styles.audioVeil} />
-      <View style={styles.audioInner}>
-        <View style={styles.albumArtWrap}>
-          <Image
-            source={media.thumbnail_url ? { uri: media.thumbnail_url } : getDefaultThumbnail(media.type)}
-            style={styles.albumArt} resizeMode="cover"
-          />
-        </View>
-        {isOff && (
-          <View style={styles.offlinePillAudio}>
-            <Ionicons name="cloud-offline" size={12} color={palette.green} />
-            <Text style={styles.offlinePillText}>Disponible hors-ligne</Text>
-          </View>
-        )}
-        <Text style={styles.audioTitle} numberOfLines={2}>{media.titre}</Text>
-        {media.credits ? <Text style={styles.audioArtist}>{media.credits}</Text> : null}
-
-        <View style={styles.progressArea}>
-          <View style={styles.progressTrack} onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}>
-            <View
-              style={styles.progressTrackInner}
-              onStartShouldSetResponder={() => true}
-              onMoveShouldSetResponder={() => true}
-              onResponderGrant={(e) => {
-                setIsSeeking(true);
-                const ratio = Math.max(0, Math.min(1, e.nativeEvent.locationX / (trackWidth || SCREEN_W - 80)));
-                setSeekValue(ratio);
-              }}
-              onResponderMove={(e) => {
-                const ratio = Math.max(0, Math.min(1, e.nativeEvent.locationX / (trackWidth || SCREEN_W - 80)));
-                setSeekValue(ratio);
-              }}
-              onResponderRelease={async (e) => {
-                const ratio = Math.max(0, Math.min(1, e.nativeEvent.locationX / (trackWidth || SCREEN_W - 80)));
-                await seekTo(ratio);
-                setIsSeeking(false);
-              }}
-            >
-              <View style={styles.progressBg} />
-              <View style={[styles.progressFill, { width: `${(isSeeking ? seekValue : progress) * 100}%` }]} />
-              <View style={[styles.progressThumb, { left: `${(isSeeking ? seekValue : progress) * 100}%` }]} />
-            </View>
-          </View>
-          <View style={styles.progressTimes}>
-            <Text style={styles.progressTime}>{fmt(isSeeking ? seekValue * duration : position)}</Text>
-            <Text style={styles.progressTime}>{fmt(duration)}</Text>
-          </View>
-        </View>
-
-        <View style={styles.audioControls}>
-          <TouchableOpacity style={styles.skipBtn} onPress={() => skip(-15000)} activeOpacity={0.7}>
-            <Ionicons name="play-back" size={22} color={palette.white} />
-            <Text style={styles.skipLabel}>15</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onPlayPause} style={styles.playBtn} activeOpacity={0.85}>
-            <Ionicons name={isPlaying ? 'pause' : 'play'} size={32} color={palette.white} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.skipBtn} onPress={() => skip(15000)} activeOpacity={0.7}>
-            <Ionicons name="play-forward" size={22} color={palette.white} />
-            <Text style={styles.skipLabel}>15</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  );
-}
-
 function OfflineBadge() {
   const { palette } = useTheme();
   const styles = useMemo(() => s(palette), [palette]);
@@ -246,6 +145,8 @@ export default function PlayerScreen() {
   const audioPosition = audioStatus.currentTime * 1000;
   const audioDuration = audioStatus.duration * 1000;
 
+  const [rate, setRate] = useState(1);
+  const nextMedia = similar[0] || null;
   const playerRef = useRef(player);
   useEffect(() => { playerRef.current = player; }, [player]);
 
@@ -331,8 +232,14 @@ export default function PlayerScreen() {
     if (isLocalVideo(media)) return <LocalVideoPlayer uri={playbackUri} />;
     if (media.type === 'audio') {
       return (
-        <AudioPlayer media={media} isPlaying={isPlaying} onPlayPause={handlePlayPause}
-          player={player} isOffline={offline} position={audioPosition} duration={audioDuration} />
+        <AudioDeck
+          media={media} isPlaying={isPlaying} onPlayPause={handlePlayPause} isOffline={offline}
+          position={audioPosition} duration={audioDuration}
+          onSeek={(ms) => { try { player.seekTo(ms / 1000); } catch {} }}
+          onPrev={router.canGoBack() ? () => router.back() : undefined}
+          onNext={nextMedia ? () => router.replace({ pathname: '/PlayerScreen', params: { slug: nextMedia.slug || nextMedia.id_media } }) : undefined}
+          rate={rate} onRate={(r) => { setRate(r); try { player.setPlaybackRate(r); } catch {} }}
+        />
       );
     }
     return <Image source={{ uri: resolveUrl(media.preview_url || media.thumbnail_url) }} style={{ flex: 1 }} resizeMode="contain" />;
@@ -449,9 +356,9 @@ const s = (p) => StyleSheet.create({
   iconBtn: { width: 38, height: 38, justifyContent: 'center', alignItems: 'center' },
   topTitle: { color: p.dark, fontSize: typography.base, fontWeight: '700', flex: 1, textAlign: 'center', marginHorizontal: spacing.sm },
 
-  playerWrap: { width: SCREEN_W, height: PLAYER_H, backgroundColor: '#000' },
-  playerWrapAudio: { height: PLAYER_H + 120 },
-  youtubeWrap: { width: SCREEN_W, height: PLAYER_H, backgroundColor: '#000' },
+  playerWrap: { width: SCREEN_W, height: PLAYER_H, backgroundColor: p.media },
+  playerWrapAudio: { height: AUDIO_DECK_HEIGHT },
+  youtubeWrap: { width: SCREEN_W, height: PLAYER_H, backgroundColor: p.media },
   ytPlayOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center' },
   ytPlayBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
@@ -459,25 +366,25 @@ const s = (p) => StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
   },
   ytPlayText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  loaderOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
+  loaderOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: p.media, justifyContent: 'center', alignItems: 'center' },
 
   offlineBadge: {
     position: 'absolute', top: 8, right: 8,
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: radius.full,
     paddingHorizontal: 8, paddingVertical: 4,
-    borderWidth: 1, borderColor: 'rgba(11,107,58,0.4)',
+    borderWidth: 1, borderColor: '`${p.green}66`',
   },
   offlineBadgeText: { color: p.green, fontSize: 10, fontWeight: '700' },
 
   offlinePill: {
     flexDirection: 'row', alignItems: 'center', gap: 3,
-    backgroundColor: 'rgba(11,107,58,0.1)', borderRadius: radius.full,
+    backgroundColor: p.greenSoft, borderRadius: radius.full,
     paddingHorizontal: 7, paddingVertical: 2,
   },
   offlinePillAudio: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(11,107,58,0.1)', borderRadius: radius.full,
+    backgroundColor: p.greenSoft, borderRadius: radius.full,
     paddingHorizontal: 10, paddingVertical: 4, marginBottom: spacing.sm,
   },
   offlinePillText: { color: p.green, fontSize: 9, fontWeight: '800' },
@@ -568,7 +475,7 @@ const s = (p) => StyleSheet.create({
     borderRadius: radius.md, padding: spacing.md, borderWidth: 1, borderColor: p.greyLight,
     marginBottom: spacing.md,
   },
-  descText: { color: '#555', fontSize: typography.sm, lineHeight: 20 },
+  descText: { color: p.darkLight, fontSize: typography.sm, lineHeight: 20 },
   similarSection: { paddingTop: spacing.sm },
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.base, marginBottom: spacing.md },
   sectionAccent: { width: 4, height: 18, borderRadius: 2, backgroundColor: p.green },

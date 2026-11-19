@@ -254,7 +254,7 @@ const cs = (p) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#fff',
     borderRadius: radius.full, paddingHorizontal: spacing.md, height: 46,
   },
-  searchInput: { flex: 1, color: '#1A1A1A', fontSize: typography.base, paddingVertical: 0 },
+  searchInput: { flex: 1, color: p.dark, fontSize: typography.base, paddingVertical: 0 },
 
   trust: { flexDirection: 'row', justifyContent: 'space-around', backgroundColor: p.white, marginHorizontal: spacing.md, marginTop: -16, borderRadius: radius.md, paddingVertical: 10, borderWidth: 1, borderColor: p.greyLight },
   trustItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
@@ -290,7 +290,7 @@ const cs = (p) => StyleSheet.create({
   cardImage: { width: '88%', height: '88%' },
   badges: { position: 'absolute', top: 8, right: 8, gap: 4, alignItems: 'flex-end' },
   badge: { fontSize: 10, fontWeight: '800', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 4, overflow: 'hidden', color: '#fff' },
-  badgeGold: { backgroundColor: p.gold, color: '#1A1A1A' },
+  badgeGold: { backgroundColor: p.gold, color: p.dark },
   badgeGreen: { backgroundColor: p.greenLight },
   outOfStock: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', paddingVertical: 4 },
   outOfStockText: { color: '#fff', fontSize: 11, fontWeight: '700', textAlign: 'center' },

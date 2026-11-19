@@ -10,13 +10,13 @@ import api, { toWhatsAppNumber, whatsappUrl } from '../src/utils/api';
 import { radius, spacing, typography } from '../src/utils/theme';
 
 const SOCIAL_ICONS = {
-  facebook: { icon: 'logo-facebook', color: '#1877F2' },
-  twitter: { icon: 'logo-twitter', color: '#1DA1F2' },
-  instagram: { icon: 'logo-instagram', color: '#E4405F' },
-  youtube: { icon: 'logo-youtube', color: '#FF0000' },
-  linkedin: { icon: 'logo-linkedin', color: '#0A66C2' },
-  tiktok: { icon: 'logo-tiktok', color: '#111111' },
-  whatsapp: { icon: 'logo-whatsapp', color: '#25D366' },
+  facebook: { icon: 'logo-facebook', color: null },
+  twitter: { icon: 'logo-twitter', color: null },
+  instagram: { icon: 'logo-instagram', color: null },
+  youtube: { icon: 'logo-youtube', color: null },
+  linkedin: { icon: 'logo-linkedin', color: null },
+  tiktok: { icon: 'logo-tiktok', color: null },
+  whatsapp: { icon: 'logo-whatsapp', color: null },
 };
 
 export default function ProfileScreen() {
@@ -48,7 +48,7 @@ export default function ProfileScreen() {
   };
 
   const rows = [
-    { icon: 'logo-whatsapp', label: 'WhatsApp', value: contact.phone, color: '#25D366', onPress: openWhatsApp },
+    { icon: 'logo-whatsapp', label: 'WhatsApp', value: contact.phone, color: palette.green, onPress: openWhatsApp },
     { icon: 'call-outline', label: 'Téléphone', value: contact.phone, color: palette.green, onPress: () => Linking.openURL(`tel:+${toWhatsAppNumber(contact.whatsapp)}`) },
     { icon: 'mail-outline', label: 'Email', value: contact.email, color: palette.gold, onPress: () => Linking.openURL(`mailto:${contact.email}`) },
   ];
@@ -98,7 +98,9 @@ export default function ProfileScreen() {
             <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>Suivez-nous</Text>
             <View style={styles.socialCard}>
               {socialMedia.map((item) => {
-                const social = SOCIAL_ICONS[item.platform] || { icon: 'globe-outline', color: palette.greyDark };
+                const base = SOCIAL_ICONS[item.platform] || { icon: 'globe-outline' };
+                // Icônes dans la charte (vert) plutôt qu'aux couleurs de chaque réseau.
+                const social = { ...base, color: palette.green };
                 return (
                   <TouchableOpacity
                     key={item.id}

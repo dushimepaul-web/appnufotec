@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
+import { BRAND } from '../utils/theme';
 
 let FileSystem = null;
 try {
@@ -51,7 +52,7 @@ export async function registerForPushNotifications() {
       name: 'Notifications NUFOTEC',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#0C7B45',
+      lightColor: BRAND.green,
     });
   }
 

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Dimensions, Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
@@ -10,7 +10,7 @@ import MediaCard from '../src/components/MediaCard';
 import { useSettings } from '../src/contexts/SettingsContext';
 import { useTheme } from '../src/contexts/ThemeContext';
 import { useRecent } from '../src/hooks/useMedias';
-import { whatsappUrl } from '../src/utils/api';
+import api, { whatsappUrl } from '../src/utils/api';
 import { radius, spacing, typography } from '../src/utils/theme';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -20,6 +20,30 @@ export default function HomeScreen() {
   const styles = useMemo(() => cs(palette), [palette]);
   const s = useSettings();
   const { data: recent } = useRecent(10);
+  const [counts, setCounts] = useState<{ medias?: number; produits?: number }>({});
+
+  // Chiffres réels (nombre de médias et de produits) plutôt que des valeurs figées.
+  useEffect(() => {
+    api.getMediaCategories()
+      .then((res: any) => {
+        if (!res?.success || !Array.isArray(res.data)) return;
+        const total = res.data.reduce((n: number, c: any) => n + (Number(c.medias) || 0), 0);
+        if (total > 0) setCounts((c) => ({ ...c, medias: total }));
+      })
+      .catch(() => {});
+    api.getProducts({ perPage: 1 })
+      .then((res: any) => {
+        const total = res?.data?.meta?.total;
+        if (total > 0) setCounts((c) => ({ ...c, produits: total }));
+      })
+      .catch(() => {});
+  }, []);
+
+  const stats = s.stats.map((stat: any) => {
+    if (stat.label === 'Médias' && counts.medias) return { ...stat, value: String(counts.medias) };
+    if (stat.label === 'Produits' && counts.produits) return { ...stat, value: String(counts.produits) };
+    return stat;
+  });
 
   const handleRecentPress = (item: any) => {
     router.push({ pathname: '/PlayerScreen', params: { slug: item.slug || item.id_media } });
@@ -52,7 +76,7 @@ export default function HomeScreen() {
 
           {/* Stats */}
           <View style={styles.statsOuter}>
-            {s.stats.map((stat: any, i: number) => (
+            {stats.map((stat: any, i: number) => (
               <View key={i} style={[styles.statCard, i === 1 && styles.statGold]}>
                 <Text style={[styles.statNum, { color: i === 1 ? palette.gold : palette.green }]}>{stat.value}</Text>
                 <Text style={[styles.statLabel, i === 1 && { color: palette.gold }]}>{stat.label}</Text>
@@ -117,10 +141,10 @@ export default function HomeScreen() {
               }}
             >
               <View style={styles.waBtnInner}>
-                <Ionicons name="logo-whatsapp" size={16} color="#25D366" />
+                <Ionicons name="logo-whatsapp" size={16} color={palette.green} />
                 <Text style={styles.waBtnText}>{s.banner.button_text}</Text>
               </View>
-              <Ionicons name="arrow-forward" size={16} color="#25D366" />
+              <Ionicons name="arrow-forward" size={16} color={palette.green} />
             </TouchableOpacity>
           </View>
 
@@ -149,7 +173,7 @@ const cs = (p: any) => StyleSheet.create({
   welcome: { marginHorizontal: spacing.lg, marginBottom: spacing.xl, backgroundColor: p.white, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: p.greyLight, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
   welcomeLine: { width: 36, height: 3, borderRadius: 2, backgroundColor: p.green, marginBottom: spacing.md },
   welcomeTitle: { fontSize: typography.lg, fontWeight: '800', color: p.dark, marginBottom: spacing.sm },
-  welcomeText: { fontSize: typography.sm, color: '#4A4F55', lineHeight: 21 },
+  welcomeText: { fontSize: typography.sm, color: p.darkLight, lineHeight: 21 },
 
   statsOuter: { flexDirection: 'row', paddingHorizontal: spacing.lg, gap: spacing.sm, marginBottom: spacing.xl },
   statCard: { flex: 1, alignItems: 'center', backgroundColor: p.white, borderRadius: radius.lg, paddingVertical: spacing.lg, borderWidth: 1, borderColor: p.greyLight, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
@@ -172,7 +196,7 @@ const cs = (p: any) => StyleSheet.create({
   gridTitle: { fontSize: typography.base, fontWeight: '700', color: p.dark, marginBottom: 2 },
   gridDesc: { fontSize: typography.xs, color: p.greyDark, lineHeight: 15 },
 
-  wa: { marginHorizontal: spacing.lg, marginBottom: spacing.xl, backgroundColor: '#128C7E', borderRadius: radius.lg, padding: spacing.lg, position: 'relative', overflow: 'hidden', shadowColor: '#128C7E', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 14, elevation: 6 },
+  wa: { marginHorizontal: spacing.lg, marginBottom: spacing.xl, backgroundColor: p.greenDark, borderRadius: radius.lg, padding: spacing.lg, position: 'relative', overflow: 'hidden', shadowColor: p.greenDark, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 14, elevation: 6 },
   recentSection: { marginBottom: spacing.xl },
   recentRow: { paddingHorizontal: spacing.lg, gap: spacing.md },
   waBg: { position: 'absolute', top: -30, right: -30, width: 140, height: 140, borderRadius: 70, backgroundColor: `${p.white}08` },
@@ -180,11 +204,11 @@ const cs = (p: any) => StyleSheet.create({
   waTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md },
   waIcon: { width: 48, height: 48, borderRadius: radius.md, backgroundColor: `${p.white}15`, justifyContent: 'center', alignItems: 'center' },
   waBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: `${p.white}12`, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.full },
-  waDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#69F0AE' },
+  waDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: p.goldLight },
   waBadgeText: { color: p.white, fontSize: typography.xs, fontWeight: '600' },
   waTitle: { color: p.white, fontWeight: '800', fontSize: typography.base, marginBottom: spacing.xs },
   waText: { color: `${p.white}CC`, fontSize: typography.sm, lineHeight: 18, marginBottom: spacing.lg },
   waBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', backgroundColor: p.white, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.full },
   waBtnInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  waBtnText: { color: '#128C7E', fontWeight: '800', fontSize: typography.sm },
+  waBtnText: { color: p.greenDark, fontWeight: '800', fontSize: typography.sm },
 });

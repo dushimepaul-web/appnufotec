@@ -153,7 +153,7 @@ const createStyles = (p) => StyleSheet.create({
   playerHeader: { alignItems: 'center', borderBottomColor: p.greyLight, borderBottomWidth: 1, flexDirection: 'row', height: 56, paddingHorizontal: spacing.base },
   playerTitle: { color: p.dark, flex: 1, fontSize: typography.md, fontWeight: '700' },
   closeButton: { alignItems: 'center', height: 40, justifyContent: 'center', width: 40 },
-  webPlayer: { flex: 1, backgroundColor: '#000' },
+  webPlayer: { flex: 1, backgroundColor: p.media },
   emptyCard: { alignItems: 'center', backgroundColor: p.whiteOff, borderColor: p.greyLight, borderRadius: radius.lg, borderWidth: 1, padding: spacing.xxl },
   emptyTitle: { color: p.dark, fontSize: typography.md, fontWeight: '700', marginTop: spacing.md, textAlign: 'center' },
   emptyText: { color: p.greyDark, fontSize: typography.sm, lineHeight: 20, marginTop: spacing.xs, textAlign: 'center' },

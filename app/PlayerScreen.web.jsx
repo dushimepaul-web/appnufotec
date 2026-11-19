@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import {
   ActivityIndicator, Alert, Dimensions, Image, Linking,
   Share, StyleSheet, Text, TouchableOpacity, View,
@@ -8,20 +8,20 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import YoutubeIframe from '../src/components/YoutubeIframe';
 import WatchDetails from '../src/components/WatchDetails';
+import { AUDIO_DECK_HEIGHT, AudioDeck } from '../src/components/MediaDisc';
 import { useMedia } from '../src/hooks/useMedias';
 import { useOfflineMedia } from '../src/hooks/useOfflineMedia';
-import { radius, spacing, typography } from '../src/utils/theme';
+import { BRAND, radius, spacing, typography } from '../src/utils/theme';
 import { useTheme } from '../src/contexts/ThemeContext';
 import api, { resolveUrl, SITE_URL } from '../src/utils/api';
 import { extractYoutubeId } from '../src/utils/youtube';
-import { getDefaultThumbnail } from '../src/utils/thumbnails';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const PLAYER_H = (SCREEN_W * 9) / 16;
 
 function HtmlVideoPlayer({ uri }) {
   return (
-    <View style={{ width: SCREEN_W, height: PLAYER_H, backgroundColor: '#000' }}>
+    <View style={{ width: SCREEN_W, height: PLAYER_H, backgroundColor: BRAND.ink }}>
       <video
         src={uri}
         controls
@@ -79,71 +79,41 @@ function PdfPlayer({ url, titre, isOfflineUri }) {
   );
 }
 
-function HtmlAudioPlayer({ uri, media, isPlaying, onPlayPause, position, duration, isOffline }) {
-  const { palette } = useTheme();
-  const styles = useMemo(() => s(palette), [palette]);
+// Lecteur audio web : élément <audio> piloté par AudioDeck (avant, la position
+// restait à 0:00 et on ne pouvait ni avancer ni reculer).
+function HtmlAudioPlayer({ uri, media, isOffline, onPrev, onNext }) {
   const audioRef = useRef(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [position, setPosition] = useState(0);
+  const [duration, setDuration] = useState((media?.duree || 0) * 1000);
+  const [rate, setRate] = useState(1);
 
-  useEffect(() => {
-    if (audioRef.current) {
-      if (isPlaying) { audioRef.current.play(); } else { audioRef.current.pause(); }
-    }
-  }, [isPlaying]);
-
-  useEffect(() => {
-    if (audioRef.current && uri) {
-      audioRef.current.src = uri;
-      audioRef.current.load();
-    }
-  }, [uri]);
-
-  const fmt = (ms) => {
-    if (!ms || ms < 0) return '0:00';
-    const s = Math.floor(ms / 1000);
-    const m = Math.floor(s / 60);
-    return `${m}:${String(s % 60).padStart(2, '0')}`;
+  const togglePlay = () => {
+    const el = audioRef.current;
+    if (!el) return;
+    if (el.paused) el.play().catch(() => {}); else el.pause();
   };
 
   return (
-    <View style={styles.audioContainer}>
-      {media.thumbnail_url ? (
-        <Image source={{ uri: media.thumbnail_url }} style={StyleSheet.absoluteFill} blurRadius={22} />
-      ) : null}
-      <View style={styles.audioVeil} />
-      <audio ref={audioRef} src={uri} preload="auto" style={{ display: 'none' }} />
-      <View style={styles.audioInner}>
-        <View style={styles.albumArtWrap}>
-          <Image
-            source={media.thumbnail_url ? { uri: media.thumbnail_url } : getDefaultThumbnail(media.type)}
-            style={styles.albumArt} resizeMode="cover"
-          />
-        </View>
-        {isOffline && (
-          <View style={styles.offlinePillAudio}>
-            <Ionicons name="cloud-offline" size={12} color={palette.green} />
-            <Text style={styles.offlinePillText}>Disponible hors-ligne</Text>
-          </View>
-        )}
-        <Text style={styles.audioTitle} numberOfLines={2}>{media.titre}</Text>
-        {media.credits ? <Text style={styles.audioArtist}>{media.credits}</Text> : null}
-        <View style={styles.progressArea}>
-          <View style={styles.progressTrack}>
-            <View style={styles.progressTrackInner}>
-              <View style={styles.progressBg} />
-              <View style={[styles.progressFill, { width: `${(duration > 0 ? position / duration : 0) * 100}%` }]} />
-            </View>
-          </View>
-          <View style={styles.progressTimes}>
-            <Text style={styles.progressTime}>{fmt(position)}</Text>
-            <Text style={styles.progressTime}>{fmt(duration)}</Text>
-          </View>
-        </View>
-        <View style={styles.audioControls}>
-          <TouchableOpacity onPress={onPlayPause} style={styles.playBtn} activeOpacity={0.85}>
-            <Ionicons name={isPlaying ? 'pause' : 'play'} size={32} color={palette.white} />
-          </TouchableOpacity>
-        </View>
-      </View>
+    <View>
+      <audio
+        ref={audioRef}
+        src={uri}
+        preload="metadata"
+        style={{ display: 'none' }}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onEnded={() => setIsPlaying(false)}
+        onTimeUpdate={(e) => setPosition(e.currentTarget.currentTime * 1000)}
+        onLoadedMetadata={(e) => { if (Number.isFinite(e.currentTarget.duration)) setDuration(e.currentTarget.duration * 1000); }}
+      />
+      <AudioDeck
+        media={media} isPlaying={isPlaying} onPlayPause={togglePlay} isOffline={isOffline}
+        position={position} duration={duration}
+        onSeek={(ms) => { if (audioRef.current) { audioRef.current.currentTime = ms / 1000; setPosition(ms); } }}
+        onPrev={onPrev} onNext={onNext}
+        rate={rate} onRate={(r) => { setRate(r); if (audioRef.current) audioRef.current.playbackRate = r; }}
+      />
     </View>
   );
 }
@@ -168,7 +138,6 @@ export default function PlayerScreen() {
 
   const { offlineMap, isOffline, getLocalUri, downloadMedia, isDownloading, getDownloadProgress, cancelDownload } = useOfflineMedia();
 
-  const [isPlaying, setIsPlaying] = useState(false);
   const styles = useMemo(() => s(palette), [palette]);
 
   const offlineEntry = offlineMap[String(identifier)] || null;
@@ -189,10 +158,6 @@ export default function PlayerScreen() {
     if (!media?.slug) return;
     api.recordView(media.slug).catch(() => {});
   }, [media?.slug]);
-
-  const handlePlayPause = useCallback(() => {
-    setIsPlaying((prev) => !prev);
-  }, []);
 
   const isPdf = (m) => {
     if (!m) return false;
@@ -253,11 +218,9 @@ export default function PlayerScreen() {
         <HtmlAudioPlayer
           uri={playbackUri}
           media={media}
-          isPlaying={isPlaying}
-          onPlayPause={handlePlayPause}
-          position={0}
-          duration={0}
           isOffline={offline}
+          onPrev={router.canGoBack() ? () => router.back() : undefined}
+          onNext={similar[0] ? () => router.replace({ pathname: '/PlayerScreen', params: { slug: similar[0].slug || similar[0].id_media } }) : undefined}
         />
       );
     }
@@ -375,27 +338,27 @@ const s = (p) => StyleSheet.create({
   iconBtn: { width: 38, height: 38, justifyContent: 'center', alignItems: 'center' },
   topTitle: { color: p.dark, fontSize: typography.base, fontWeight: '700', flex: 1, textAlign: 'center', marginHorizontal: spacing.sm },
 
-  playerWrap: { width: SCREEN_W, height: PLAYER_H, backgroundColor: '#000' },
-  playerWrapAudio: { height: PLAYER_H + 120 },
-  youtubeWrap: { width: SCREEN_W, height: PLAYER_H, backgroundColor: '#000' },
+  playerWrap: { width: SCREEN_W, height: PLAYER_H, backgroundColor: p.media },
+  playerWrapAudio: { height: AUDIO_DECK_HEIGHT },
+  youtubeWrap: { width: SCREEN_W, height: PLAYER_H, backgroundColor: p.media },
 
   offlineBadge: {
     position: 'absolute', top: 8, right: 8,
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: radius.full,
     paddingHorizontal: 8, paddingVertical: 4,
-    borderWidth: 1, borderColor: 'rgba(11,107,58,0.4)',
+    borderWidth: 1, borderColor: '`${p.green}66`',
   },
   offlineBadgeText: { color: p.green, fontSize: 10, fontWeight: '700' },
 
   offlinePill: {
     flexDirection: 'row', alignItems: 'center', gap: 3,
-    backgroundColor: 'rgba(11,107,58,0.1)', borderRadius: radius.full,
+    backgroundColor: p.greenSoft, borderRadius: radius.full,
     paddingHorizontal: 7, paddingVertical: 2,
   },
   offlinePillAudio: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(11,107,58,0.1)', borderRadius: radius.full,
+    backgroundColor: p.greenSoft, borderRadius: radius.full,
     paddingHorizontal: 10, paddingVertical: 4, marginBottom: spacing.sm,
   },
   offlinePillText: { color: p.green, fontSize: 9, fontWeight: '800' },
@@ -475,7 +438,7 @@ const s = (p) => StyleSheet.create({
     borderRadius: radius.md, padding: spacing.md, borderWidth: 1, borderColor: p.greyLight,
     marginBottom: spacing.md,
   },
-  descText: { color: '#555', fontSize: typography.sm, lineHeight: 20 },
+  descText: { color: p.darkLight, fontSize: typography.sm, lineHeight: 20 },
   similarSection: { paddingTop: spacing.sm },
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.base, marginBottom: spacing.md },
   sectionAccent: { width: 4, height: 18, borderRadius: 2, backgroundColor: p.green },
