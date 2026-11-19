@@ -10,6 +10,7 @@ import MediaCard from '../src/components/MediaCard';
 import { useSettings } from '../src/contexts/SettingsContext';
 import { useTheme } from '../src/contexts/ThemeContext';
 import { useRecent } from '../src/hooks/useMedias';
+import { whatsappUrl } from '../src/utils/api';
 import { radius, spacing, typography } from '../src/utils/theme';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -112,7 +113,7 @@ export default function HomeScreen() {
               activeOpacity={0.8}
               onPress={() => {
                 const msg = `Bonjour ${s.app_name} ${s.app_subtitle}, je vous contacte depuis l'application.`;
-                Linking.openURL(`https://wa.me/${s.contact.whatsapp}?text=${encodeURIComponent(msg)}`).catch(() => {});
+                Linking.openURL(whatsappUrl(s.contact.whatsapp, msg)).catch(() => {});
               }}
             >
               <View style={styles.waBtnInner}>

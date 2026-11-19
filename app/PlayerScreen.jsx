@@ -16,7 +16,7 @@ import { useMedia } from '../src/hooks/useMedias';
 import { useOfflineMedia } from '../src/hooks/useOfflineMedia';
 import { radius, spacing, typography } from '../src/utils/theme';
 import { useTheme } from '../src/contexts/ThemeContext';
-import api, { resolveUrl } from '../src/utils/api';
+import api, { resolveUrl, SITE_URL } from '../src/utils/api';
 import { extractYoutubeId } from '../src/utils/youtube';
 import { getDefaultThumbnail } from '../src/utils/thumbnails';
 
@@ -286,7 +286,7 @@ export default function PlayerScreen() {
 
   const handleShare = async () => {
     try {
-      const shareUrl = `https://nufotec.com/media/${media?.slug}`;
+      const shareUrl = `${SITE_URL}/media/${media?.slug}`;
       await Share.share({ message: `Découvrez "${media?.titre}" sur NUFOTEC BURUNDI !\n${shareUrl}`, title: media?.titre, url: shareUrl });
     } catch (e) { console.error('share:', e); }
   };
@@ -413,7 +413,7 @@ export default function PlayerScreen() {
           <View style={styles.titleTopRow}>
             {media.categorie ? (
               <View style={styles.catPill}>
-                <Text style={styles.catPillText}>{media.categorie}</Text>
+                <Text style={styles.catPillText}>{media.categorie_label || media.categorie}</Text>
               </View>
             ) : null}
             <View style={styles.statItem}>

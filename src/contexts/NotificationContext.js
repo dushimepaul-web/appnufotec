@@ -88,7 +88,11 @@ export function NotificationProvider({ children }) {
       if (!Array.isArray(items)) throw new Error('Format de notifications invalide');
 
       const savedById = new Map(saved.map(item => [String(item.id), item]));
-      setNotifications(items.map((item, index) => normalizeNotification(item, index, savedById)));
+      const remote = items.map((item, index) => normalizeNotification(item, index, savedById));
+      // Conserve les notifications reçues localement (push) absentes du serveur.
+      const remoteIds = new Set(remote.map(item => item.id));
+      const localOnly = saved.filter(item => !remoteIds.has(String(item.id)));
+      setNotifications([...remote, ...localOnly].sort((a, b) => String(b.time).localeCompare(String(a.time))));
     } catch {
       setNotifications(saved);
     } finally {
@@ -111,17 +115,20 @@ export function NotificationProvider({ children }) {
     FileSystem.writeAsStringAsync(NOTIF_FILE, JSON.stringify(notifications)).catch(() => {});
   }, [notifications, loaded]);
 
-  const addNotification = (notif) => {
+  // Callbacks stables : _layout.tsx s'abonne aux notifications push avec
+  // addNotification en dépendance ; une nouvelle fonction à chaque rendu
+  // provoquait un désabonnement/réabonnement à chaque changement d'état.
+  const addNotification = useCallback((notif) => {
     setNotifications(previous => [{ id: Date.now().toString(), ...notif, read: false, time: new Date().toISOString() }, ...previous]);
-  };
+  }, []);
 
-  const markAsRead = (id) => {
+  const markAsRead = useCallback((id) => {
     setNotifications(previous => previous.map(item => item.id === id ? { ...item, read: true } : item));
-  };
+  }, []);
 
-  const markAllAsRead = () => {
+  const markAllAsRead = useCallback(() => {
     setNotifications(previous => previous.map(item => ({ ...item, read: true })));
-  };
+  }, []);
 
   const unreadCount = notifications.filter(item => !item.read).length;
 

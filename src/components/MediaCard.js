@@ -80,7 +80,7 @@ export default function MediaCard({ item, onPress, horizontal = false }) {
           <Text style={styles.titleH} numberOfLines={2}>{item.titre}</Text>
           {item.categorie ? (
             <View style={styles.catPill}>
-              <Text style={styles.catPillText}>{item.categorie}</Text>
+              <Text style={styles.catPillText}>{item.categorie_label || item.categorie}</Text>
             </View>
           ) : null}
           <Text style={styles.metaTextH}>
@@ -123,7 +123,7 @@ export default function MediaCard({ item, onPress, horizontal = false }) {
         <View style={styles.metaRow}>
           {item.categorie ? (
             <View style={styles.catPill}>
-              <Text style={styles.catPillText}>{item.categorie}</Text>
+              <Text style={styles.catPillText}>{item.categorie_label || item.categorie}</Text>
             </View>
           ) : null}
         </View>

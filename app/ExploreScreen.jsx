@@ -48,7 +48,7 @@ export default function ExploreScreen() {
                   <View style={styles.sectionAccent} />
                   <Ionicons name="flame" size={18} color={palette.green} />
                   <Text style={styles.sectionTitle}>{p.trending}</Text>
-                  <View style={styles.sectionCount}>{popular.length}</View>
+                  <View style={styles.sectionCount}><Text style={styles.sectionCountText}>{popular.length}</Text></View>
                 </View>
               )}
               <MediaCard item={item} onPress={handlePress} />
@@ -75,5 +75,6 @@ const s = (p) => StyleSheet.create({
   sectionAccent: { width: 4, height: 20, borderRadius: 2, backgroundColor: p.green },
   sectionTitle: { color: p.dark, fontSize: typography.lg, fontWeight: '700', flex: 1 },
   sectionCount: { backgroundColor: `${p.green}10`, paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.full },
+  sectionCountText: { color: p.green, fontSize: typography.xs, fontWeight: '700' },
   emptyIconBox: { width: 72, height: 72, borderRadius: 36, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.md },
 });

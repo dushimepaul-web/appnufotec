@@ -7,6 +7,7 @@ import { PlayerProvider } from '../src/contexts/PlayerContext';
 import { SettingsProvider } from '../src/contexts/SettingsContext';
 import { ThemeProvider } from '../src/contexts/ThemeContext';
 import { NetworkProvider } from '../src/contexts/NetworkContext';
+import '../src/utils/alert-polyfill';
 import ErrorBoundary from '../src/components/ErrorBoundary';
 
 import ThemeToggle from '../src/components/ThemeToggle';

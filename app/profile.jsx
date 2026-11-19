@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import { useSettings } from '../src/contexts/SettingsContext';
 import { useTheme } from '../src/contexts/ThemeContext';
+import { toWhatsAppNumber, whatsappUrl } from '../src/utils/api';
 import { radius, spacing, typography } from '../src/utils/theme';
 
 const SOCIAL_ICONS = {
@@ -26,12 +27,12 @@ export default function ProfileScreen() {
 
   const openWhatsApp = () => {
     const msg = `Bonjour ${settings.app_name} ${settings.app_subtitle}, je vous contacte depuis l'application.`;
-    Linking.openURL(`https://wa.me/${contact.whatsapp}?text=${encodeURIComponent(msg)}`);
+    Linking.openURL(whatsappUrl(contact.whatsapp, msg));
   };
 
   const rows = [
     { icon: 'logo-whatsapp', label: 'WhatsApp', value: contact.phone, color: '#25D366', onPress: openWhatsApp },
-    { icon: 'call-outline', label: 'Téléphone', value: contact.phone, color: palette.green, onPress: () => Linking.openURL(`tel:${contact.whatsapp}`) },
+    { icon: 'call-outline', label: 'Téléphone', value: contact.phone, color: palette.green, onPress: () => Linking.openURL(`tel:+${toWhatsAppNumber(contact.whatsapp)}`) },
     { icon: 'mail-outline', label: 'Email', value: contact.email, color: palette.gold, onPress: () => Linking.openURL(`mailto:${contact.email}`) },
   ];
 

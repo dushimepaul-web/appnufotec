@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BottomNav from '../src/components/BottomNav';
 import { useSettings } from '../src/contexts/SettingsContext';
 import { useTheme } from '../src/contexts/ThemeContext';
+import { whatsappUrl } from '../src/utils/api';
 import { radius, spacing, typography } from '../src/utils/theme';
 
 function Field({ icon, label, required: req, helper, children }) {
@@ -77,7 +78,7 @@ export default function ConsultationScreen() {
 
   const formatWhatsAppMessage = () => {
     const msg = `*CONSULTATION NUFOTEC BURUNDI*\n\n*Nom :* ${formData.fullName}\n*Âge :* ${formData.age} ans\n*Taille :* ${formData.height} cm\n*Poids :* ${formData.weight} kg\n*Résidence :* ${formData.residence}\n\n*Symptômes :*\n${formData.symptoms}\n\n*Examens :*\n${formData.exams || 'Aucun'}\n\n*Photos :* ${examImages.length} photo(s) à suivre.`;
-    return encodeURIComponent(msg);
+    return msg;
   };
 
   const handleSubmit = () => {
@@ -89,7 +90,7 @@ export default function ConsultationScreen() {
       if (!formData[field].trim()) { Alert.alert('Champ manquant', `Veuillez entrer votre ${label}.`); return; }
     }
     setLoading(true);
-    Linking.openURL(`https://wa.me/${contact.whatsapp}?text=${formatWhatsAppMessage()}`);
+    Linking.openURL(whatsappUrl(contact.whatsapp, formatWhatsAppMessage()));
     setLoading(false);
     Alert.alert(
       examImages.length > 0 ? 'Photos à envoyer' : 'Demande envoyée',

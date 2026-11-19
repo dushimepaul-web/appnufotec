@@ -1,4 +1,4 @@
-import { BASE_URL } from './api';
+import { BASE_URL, toWhatsAppNumber } from './api';
 import { extractYoutubeId } from './youtube';
 
 function formatViews(value) {
@@ -26,6 +26,14 @@ function mediaType(item) {
   if (format === 'pdf') return 'pdf';
   return 'document';
 }
+
+const CATEGORY_LABELS = {
+  audio: 'Audio',
+  video: 'Vidéo',
+  link: 'YouTube',
+  image: 'Image',
+  fichier: 'Document',
+};
 
 function mediaUrls(item) {
   const slug = item.slug || item.uuid;
@@ -60,6 +68,7 @@ export function adaptMedia(item, detail = false) {
     uuid: item.uuid,
     type,
     categorie: item.categorie,
+    categorie_label: CATEGORY_LABELS[item.categorie] || item.categorie || null,
     titre: item.titre || '',
     thumbnail_url: thumbnail,
     miniature: item.miniature,
@@ -147,7 +156,7 @@ export function adaptSettings(raw) {
   const appName = parts.length > 1 ? parts[0] : siteName;
   const appSubtitle = parts.length > 1 ? parts.slice(1).join(' ') : undefined;
   const phone = raw.site_phone || raw.contact_whatsapp || undefined;
-  const whatsapp = String(raw.contact_whatsapp || raw.site_phone || '').replace(/\D/g, '') || undefined;
+  const whatsapp = toWhatsAppNumber(raw.contact_whatsapp || raw.site_phone) || undefined;
   const email = raw.contact_email_invest || undefined;
 
   return compact({

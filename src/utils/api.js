@@ -14,10 +14,33 @@ function resolveDevApiBase() {
 }
 
 const DEFAULT_API_BASE = __DEV__ ? resolveDevApiBase() : 'https://nufotec.com/api/v1';
-const API_BASE = (process.env.EXPO_PUBLIC_API_URL || DEFAULT_API_BASE).replace(/\/+$/, '');
+
+// En dev web, l'API distante refuse les requêtes cross-origin (pas d'en-tête
+// CORS) : on passe par le proxy Metro défini dans metro.config.js.
+function webDevProxyBase() {
+  if (!__DEV__ || Platform.OS !== 'web' || typeof window === 'undefined') return null;
+  const { origin, hostname } = window.location || {};
+  if (!origin || !/^(localhost|127\.0\.0\.1|\d+\.\d+\.\d+\.\d+)$/.test(hostname || '')) return null;
+  return `${origin}/__api`;
+}
+
+const API_BASE = (webDevProxyBase() || process.env.EXPO_PUBLIC_API_URL || DEFAULT_API_BASE).replace(/\/+$/, '');
 
 export const BASE_URL = API_BASE;
 export const SITE_URL = (process.env.EXPO_PUBLIC_SITE_URL || 'https://nufotec.com').replace(/\/+$/, '');
+
+// wa.me exige un numéro international sans "+" ni espaces (ex. 25779666439).
+// Un numéro burundais local à 8 chiffres reçoit l'indicatif 257.
+export function toWhatsAppNumber(value) {
+  const digits = String(value || '').replace(/\D/g, '').replace(/^00/, '');
+  if (digits.length === 8) return `257${digits}`;
+  return digits;
+}
+
+export function whatsappUrl(number, text) {
+  const n = toWhatsAppNumber(number);
+  return `https://wa.me/${n}${text ? `?text=${encodeURIComponent(text)}` : ''}`;
+}
 
 async function parseJsonResponse(response) {
   const body = await response.text();

@@ -7,7 +7,7 @@ import {
 import BottomNav from '../src/components/BottomNav';
 import { useSettings } from '../src/contexts/SettingsContext';
 import { useTheme } from '../src/contexts/ThemeContext';
-import api from '../src/utils/api';
+import api, { SITE_URL, whatsappUrl } from '../src/utils/api';
 import { adaptProduct } from '../src/utils/adapters';
 import { radius, spacing, typography } from '../src/utils/theme';
 
@@ -80,7 +80,7 @@ export default function ProductDetailScreen() {
       `Nom: ${product.title}`,
       `Prix: ${product.price}`,
       `Quantité: ${quantity}`,
-      `Lien: https://nufotec.com/product/${product.slug}`,
+      `Lien: ${SITE_URL}/product/${product.slug}`,
       ``,
       `👤 *CLIENT*`,
       `Nom: ${formData.name}`,
@@ -106,8 +106,8 @@ export default function ProductDetailScreen() {
     } catch {
       const dateStr = new Date().toLocaleDateString('fr-FR');
       const timeStr = new Date().toLocaleTimeString('fr-FR');
-      const msg = `*${siteName} - Demande de prix*\n\nBonjour, je souhaite connaître le prix actualisé de ${product.title}.\n\n📦 *Source:* Application Mobile\n🔗 *Lien:* https://nufotec.com/product/${product.slug}\n\n📅 *Date:* ${dateStr} à ${timeStr}`;
-      await Linking.openURL(`https://wa.me/${contact.whatsapp}?text=${encodeURIComponent(msg)}`);
+      const msg = `*${siteName} - Demande de prix*\n\nBonjour, je souhaite connaître le prix actualisé de ${product.title}.\n\n📦 *Source:* Application Mobile\n🔗 *Lien:* ${SITE_URL}/product/${product.slug}\n\n📅 *Date:* ${dateStr} à ${timeStr}`;
+      await Linking.openURL(whatsappUrl(contact.whatsapp, msg));
     }
     setShowOrderForm(false);
   };
@@ -136,7 +136,7 @@ export default function ProductDetailScreen() {
         throw new Error('URL WhatsApp indisponible');
       }
     } catch {
-      await Linking.openURL(`https://wa.me/${contact.whatsapp}?text=${encodeURIComponent(formatWhatsAppMessage())}`);
+      await Linking.openURL(whatsappUrl(contact.whatsapp, formatWhatsAppMessage()));
     }
     setShowOrderForm(false);
     setFormData({ name: '', phone: '', country: 'Burundi', city: '', address: '' });

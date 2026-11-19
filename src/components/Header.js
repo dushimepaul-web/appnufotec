@@ -7,6 +7,7 @@ import { useMemo } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNotifications } from '../contexts/NotificationContext';
 import { spacing, typography } from '../utils/theme';
+import ThemeToggle from './ThemeToggle';
 
 export default function Header({ title, showBack = false }) {
   const insets = useSafeAreaInsets();
@@ -52,6 +53,7 @@ export default function Header({ title, showBack = false }) {
         <TouchableOpacity style={styles.avatar} onPress={() => router.push('/profile')}>
           <Ionicons name="person" size={14} color={palette.white} />
         </TouchableOpacity>
+        <ThemeToggle inline />
       </View>
     </View>
   );

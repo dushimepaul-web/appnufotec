@@ -1,4 +1,5 @@
-import * as SecureStore from 'expo-secure-store';
+import * as SecureStoreNative from 'expo-secure-store';
+import { Platform } from 'react-native';
 import api from '../utils/api';
 import { registerForPushNotifications, sendTokenToServer } from './notifications';
 
@@ -12,6 +13,16 @@ try {
     FileSystem = null;
   }
 }
+
+// expo-secure-store n'est pas disponible sur web : on utilise localStorage
+// pour que la connexion survive sur cette plateforme.
+const SecureStore = Platform.OS === 'web'
+  ? {
+      getItemAsync: async (key) => { try { return window.localStorage.getItem(key); } catch { return null; } },
+      setItemAsync: async (key, value) => { try { window.localStorage.setItem(key, value); } catch {} },
+      deleteItemAsync: async (key) => { try { window.localStorage.removeItem(key); } catch {} },
+    }
+  : SecureStoreNative;
 
 const AUTH_FILE = FileSystem?.documentDirectory
   ? FileSystem.documentDirectory + 'auth_token.json'

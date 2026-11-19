@@ -31,6 +31,7 @@ export default function ProduitsScreen() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const inputRef = useRef(null);
   const searchTimer = useRef(null);
+  const searchReq = useRef(0);
 
   useEffect(() => {
     api.getProductCategories()
@@ -73,6 +74,8 @@ export default function ProduitsScreen() {
     setSearchQuery(text);
     clearTimeout(searchTimer.current);
     if (text.length < 2) {
+      searchReq.current += 1;
+      setSearching(false);
       if (isSearchMode) { setPage(1); setProducts([]); setLoading(true); }
       setSearchResults([]);
       setIsSearchMode(false);
@@ -80,16 +83,21 @@ export default function ProduitsScreen() {
     }
     setIsSearchMode(true);
     setSearching(true);
+    const reqId = ++searchReq.current;
     searchTimer.current = setTimeout(async () => {
       try {
         const response = await api.getProducts({ q: text, perPage: 30 });
+        if (reqId !== searchReq.current) return;
         if (response.success) setSearchResults((response.data?.items || []).map((item) => adaptProduct(item)));
       } catch (e) { console.error('Erreur recherche:', e);
-      } finally { setSearching(false); }
+      } finally { if (reqId === searchReq.current) setSearching(false); }
     }, 350);
   };
 
   const clearSearch = () => {
+    clearTimeout(searchTimer.current);
+    searchReq.current += 1;
+    setSearching(false);
     setSearchQuery('');
     setSearchResults([]);
     setIsSearchMode(false);
