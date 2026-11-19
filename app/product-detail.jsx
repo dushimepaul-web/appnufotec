@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator, Alert, Image, Linking, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
@@ -8,16 +8,19 @@ import BottomNav from '../src/components/BottomNav';
 import { useSettings } from '../src/contexts/SettingsContext';
 import { useTheme } from '../src/contexts/ThemeContext';
 import api from '../src/utils/api';
+import { adaptProduct } from '../src/utils/adapters';
 import { radius, spacing, typography } from '../src/utils/theme';
 
 export default function ProductDetailScreen() {
   const { palette } = useTheme();
   const styles = useMemo(() => s(palette), [palette]);
-  const { id } = useLocalSearchParams();
+  const { slug, id } = useLocalSearchParams();
+  const identifier = slug || id;
   const settings = useSettings();
   const siteName = `${settings.app_name} ${settings.app_subtitle}`;
   const contact = settings.contact;
   const [product, setProduct] = useState(null);
+  const [paysList, setPaysList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
 
@@ -29,22 +32,11 @@ export default function ProductDetailScreen() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
-  useEffect(() => {
-    loadProductDetail();
-    const timer = setTimeout(() => {
-      setToastMessage(`Veuillez nous contacter via WhatsApp ${contact.phone} ou Email ${contact.email} pour connaitre le prix actualisé`);
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 5000);
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, [id]);
-
-  const loadProductDetail = async () => {
+  const loadProductDetail = useCallback(async () => {
     try {
-      setLoading(true);
-      const response = await api.getProductDetail(id);
+      const response = await api.getProductDetail(identifier);
       if (response.success) {
-        setProduct(response.data);
+        setProduct(adaptProduct(response.data, true));
       } else {
         Alert.alert('Erreur', response.message || 'Produit non trouvé');
         router.back();
@@ -55,30 +47,97 @@ export default function ProductDetailScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [identifier]);
+
+  useEffect(() => {
+    api.getPays()
+      .then((res) => { if (res.success) setPaysList(res.data || []); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    Promise.resolve().then(loadProductDetail);
+    let hideToastTimer;
+    const showToastTimer = setTimeout(() => {
+      setToastMessage(`Veuillez nous contacter via WhatsApp ${contact.phone} ou Email ${contact.email} pour connaitre le prix actualisé`);
+      setShowToast(true);
+      hideToastTimer = setTimeout(() => setShowToast(false), 5000);
+    }, 2000);
+    return () => {
+      clearTimeout(showToastTimer);
+      clearTimeout(hideToastTimer);
+    };
+  }, [contact.email, contact.phone, loadProductDetail]);
 
   const formatWhatsAppMessage = () => {
     const dateStr = new Date().toLocaleDateString('fr-FR', {
       day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
     });
-    return `🛒 *COMMANDE - ${siteName}*%0A%0A📦 *PRODUIT*%0ANom: ${product.title}%0APrix: ${product.price}%0AQuantité: ${quantity}%0ALien: https://nufotec.com/product/${product.slug}%0A%0A👤 *CLIENT*%0ANom: ${formData.name}%0ATéléphone: ${formData.phone}%0APays: ${formData.country}%0AVille: ${formData.city}%0AAdresse: ${formData.address}%0A%0A📅 Date: ${dateStr}%0A⏳ Statut: En attente de confirmation`;
+    return [
+      `🛒 *COMMANDE - ${siteName}*`,
+      ``,
+      `📦 *PRODUIT*`,
+      `Nom: ${product.title}`,
+      `Prix: ${product.price}`,
+      `Quantité: ${quantity}`,
+      `Lien: https://nufotec.com/product/${product.slug}`,
+      ``,
+      `👤 *CLIENT*`,
+      `Nom: ${formData.name}`,
+      `Téléphone: ${formData.phone}`,
+      `Pays: ${formData.country}`,
+      `Ville: ${formData.city}`,
+      `Adresse: ${formData.address}`,
+      ``,
+      `📅 Date: ${dateStr}`,
+      `⏳ Statut: En attente de confirmation`,
+    ].join('\n');
   };
 
   const handlePriceRequest = async () => {
-    try { await api.incrementPriceRequest(product.id); } catch (e) { console.error(e); }
-    const dateStr = new Date().toLocaleDateString('fr-FR');
-    const timeStr = new Date().toLocaleTimeString('fr-FR');
-    const msg = `*${siteName} - Demande de prix*%0A%0ABonjour, je souhaite connaître le prix actualisé de ${product.title}.%0A%0A📦 *Source:* Application Mobile%0A🔗 *Lien:* https://nufotec.com/product/${product.slug}%0A%0A📅 *Date:* ${dateStr} à ${timeStr}`;
-    Linking.openURL(`https://wa.me/${contact.whatsapp}?text=${msg}`);
+    try {
+      const response = await api.requestPrice(product.slug);
+      const url = response?.data?.whatsapp?.url || response?.data?.url;
+      if (url) {
+        await Linking.openURL(url);
+      } else {
+        throw new Error('URL WhatsApp indisponible');
+      }
+    } catch {
+      const dateStr = new Date().toLocaleDateString('fr-FR');
+      const timeStr = new Date().toLocaleTimeString('fr-FR');
+      const msg = `*${siteName} - Demande de prix*\n\nBonjour, je souhaite connaître le prix actualisé de ${product.title}.\n\n📦 *Source:* Application Mobile\n🔗 *Lien:* https://nufotec.com/product/${product.slug}\n\n📅 *Date:* ${dateStr} à ${timeStr}`;
+      await Linking.openURL(`https://wa.me/${contact.whatsapp}?text=${encodeURIComponent(msg)}`);
+    }
     setShowOrderForm(false);
   };
 
-  const handleWhatsAppOrder = () => {
+  const handleWhatsAppOrder = async () => {
     if (!formData.name.trim()) { Alert.alert('Champ manquant', 'Veuillez entrer votre nom'); return; }
     if (!formData.phone.trim()) { Alert.alert('Champ manquant', 'Veuillez entrer votre numéro de téléphone'); return; }
     if (!formData.city.trim()) { Alert.alert('Champ manquant', 'Veuillez entrer votre ville'); return; }
     if (!formData.address.trim()) { Alert.alert('Champ manquant', 'Veuillez entrer votre adresse'); return; }
-    Linking.openURL(`https://wa.me/${contact.whatsapp}?text=${formatWhatsAppMessage()}`);
+    const pays = paysList.find((p) => p.pays?.toLowerCase() === formData.country.trim().toLowerCase())
+      || paysList.find((p) => p.pays?.toLowerCase() === 'burundi')
+      || paysList[0] || null;
+    try {
+      const response = await api.createOrder(product.slug, {
+        nom_complet: formData.name.trim(),
+        telephone: formData.phone.trim(),
+        pays_id: pays?.id ?? null,
+        ville: formData.city.trim(),
+        adresse: formData.address.trim(),
+        quantite: quantity,
+      });
+      const url = response?.data?.whatsapp?.url;
+      if (url) {
+        await Linking.openURL(url);
+      } else {
+        throw new Error('URL WhatsApp indisponible');
+      }
+    } catch {
+      await Linking.openURL(`https://wa.me/${contact.whatsapp}?text=${encodeURIComponent(formatWhatsAppMessage())}`);
+    }
     setShowOrderForm(false);
     setFormData({ name: '', phone: '', country: 'Burundi', city: '', address: '' });
     setQuantity(1);
@@ -158,10 +217,6 @@ export default function ProductDetailScreen() {
                 <Text style={styles.priceLabel}>Prix</Text>
                 <Text style={styles.productPrice}>{product.price}</Text>
               </View>
-              <TouchableOpacity style={styles.requestCount} onPress={handlePriceRequest}>
-                <Ionicons name="chatbubble-outline" size={14} color={palette.gold} />
-                <Text style={styles.requestCountText}>{product.price_request_count || 0} demandes</Text>
-              </TouchableOpacity>
             </View>
 
             <View style={styles.quantityRow}>
@@ -205,9 +260,9 @@ export default function ProductDetailScreen() {
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarScroll}>
                   {product.similar_products.map((item) => (
                     <TouchableOpacity
-                      key={item.id}
+                      key={item.slug || item.id}
                       style={styles.similarCard}
-                      onPress={() => router.push({ pathname: '/product-detail', params: { id: item.id } })}
+                      onPress={() => router.push({ pathname: '/product-detail', params: { slug: item.slug || item.id } })}
                     >
                       <Image source={{ uri: item.image }} style={styles.similarImage} />
                       <Text style={styles.similarTitle} numberOfLines={2}>{item.title}</Text>
@@ -352,4 +407,3 @@ const s = (p) => StyleSheet.create({
   submitGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: spacing.md, gap: spacing.sm },
   submitText: { color: 'white', fontSize: typography.base, fontWeight: 'bold' },
 });
-

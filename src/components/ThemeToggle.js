@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Animated, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../contexts/ThemeContext';
@@ -8,7 +8,7 @@ import { radius, spacing } from '../utils/theme';
 export default function ThemeToggle() {
   const insets = useSafeAreaInsets();
   const { isDark, palette, toggleTheme } = useTheme();
-  const anim = useRef(new Animated.Value(isDark ? 1 : 0)).current;
+  const [anim] = useState(() => new Animated.Value(isDark ? 1 : 0));
 
   useEffect(() => {
     Animated.timing(anim, {

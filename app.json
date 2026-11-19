@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "nufo",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "bundleIdentifier": "com.nufotec.app",
       "supportsTablet": true,
@@ -22,7 +21,6 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.RECORD_AUDIO",
@@ -47,13 +45,10 @@
         "expo-build-properties",
         {
           "android": {
-            "compileSdkVersion": 35,
-            "targetSdkVersion": 35,
-            "buildToolsVersion": "35.0.0",
             "minSdkVersion": 24
           },
           "ios": {
-            "deploymentTarget": "15.1"
+            "deploymentTarget": "16.4"
           }
         }
       ],
@@ -76,6 +71,7 @@
         }
       ],
       "expo-audio",
+      "expo-notifications",
       [
         "expo-media-library",
         {
@@ -91,7 +87,8 @@
           "cameraPermission": "Allow NUFOTEC to access your camera to take photos for consultation."
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

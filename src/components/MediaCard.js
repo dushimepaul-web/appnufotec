@@ -8,25 +8,28 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { PlayerContext } from '../contexts/PlayerContext';
+import { PlayerActionsContext } from '../contexts/PlayerContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { palette, radius, spacing, typography } from '../utils/theme';
-
-const TYPE_CONFIG = {
-  audio: { icon: 'musical-notes', color: palette.gold, bg: palette.goldSoft },
-  video: { icon: 'play-circle', color: palette.green, bg: 'rgba(11,107,58,0.1)' },
-  pdf: { icon: 'document-text', color: palette.red, bg: palette.redSoft },
-};
+import { radius, spacing, typography } from '../utils/theme';
+import { getDefaultThumbnail } from '../utils/thumbnails';
+import { extractYoutubeId } from '../utils/youtube';
 
 export default function MediaCard({ item, onPress, horizontal = false }) {
   const { palette } = useTheme();
   const styles = useMemo(() => s(palette), [palette]);
-  const playerContext = useContext(PlayerContext);
-  const stopPlayback = playerContext?.stopPlayback || (() => Promise.resolve());
+  const stopPlayback = useContext(PlayerActionsContext)?.stopPlayback || (() => Promise.resolve());
+
+  const TYPE_CONFIG = useMemo(() => ({
+    audio: { icon: 'musical-notes', color: palette.gold, bg: `${palette.gold}15` },
+    video: { icon: 'play-circle', color: palette.green, bg: `${palette.green}12` },
+    pdf: { icon: 'document-text', color: palette.red, bg: `${palette.red}12` },
+    document: { icon: 'document-text', color: palette.red, bg: `${palette.red}12` },
+    image: { icon: 'image', color: palette.green, bg: `${palette.green}12` },
+  }), [palette]);
 
   if (!item) return null;
 
-  const isYoutube = !!item.youtube_id;
+  const isYoutube = !!(item.youtube_id || extractYoutubeId(item.file_url || item.lien));
   const typeConfig = TYPE_CONFIG[item.type] || TYPE_CONFIG.video;
 
   const handlePress = async () => {
@@ -40,7 +43,7 @@ export default function MediaCard({ item, onPress, horizontal = false }) {
     } else {
       router.push({
         pathname: '/PlayerScreen',
-        params: { id: item.id_media },
+        params: { slug: item.slug || item.id_media },
       });
     }
   };
@@ -53,7 +56,7 @@ export default function MediaCard({ item, onPress, horizontal = false }) {
             source={
               item.thumbnail_url
                 ? { uri: item.thumbnail_url }
-                : require('../../assets/placeholder.png')
+                : getDefaultThumbnail(item.type)
             }
             style={styles.thumb}
             resizeMode="cover"
@@ -95,7 +98,7 @@ export default function MediaCard({ item, onPress, horizontal = false }) {
           source={
             item.thumbnail_url
               ? { uri: item.thumbnail_url }
-              : require('../../assets/placeholder.png')
+              : getDefaultThumbnail(item.type)
           }
           style={styles.thumb}
           resizeMode="cover"

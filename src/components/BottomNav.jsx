@@ -10,7 +10,7 @@ const NAV_ITEMS = [
   { name: 'Médias', icon: 'play-circle', route: '/medias' },
   { name: 'Consultation', icon: 'calendar', route: '/consultation' },
   { name: 'Produits', icon: 'cube', route: '/produits' },
-  { name: 'Téléchargés', icon: 'cloud-download', route: '/OfflineScreen' },
+  { name: 'A propos', icon: 'information-circle', route: '/profile' },
 ];
 
 export default function BottomNav() {

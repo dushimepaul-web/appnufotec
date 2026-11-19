@@ -1,45 +1,60 @@
 // src/contexts/PlayerContext.js
-import React, { createContext, useRef, useState } from 'react';
+import React, { createContext, useCallback, useMemo, useRef, useState } from 'react';
 
-export const PlayerContext = createContext(null);
+export const PlayerStateContext = createContext(null);
+export const PlayerActionsContext = createContext(null);
 
 export function PlayerProvider({ children }) {
-  const [activeSound, setActiveSound] = useState(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [activeSound, setActiveSoundState] = useState(null);
+  const [isPlaying, setIsPlayingState] = useState(false);
   const soundRef = useRef(null);
 
-  const stopPlayback = async () => {
-    console.log('stopPlayback called - stopping audio'); // Debug
+  const setActiveSound = useCallback((sound) => {
+    soundRef.current = sound;
+    setActiveSoundState(sound);
+  }, []);
+
+  const setIsPlaying = useCallback((value) => {
+    setIsPlayingState(value);
+  }, []);
+
+  const stopPlayback = useCallback(async () => {
     try {
-      if (soundRef.current) {
-        const status = await soundRef.current.getStatusAsync();
-        if (status.isLoaded) {
-          await soundRef.current.stopAsync();
-          await soundRef.current.unloadAsync();
-        }
+      const player = soundRef.current;
+      if (player) {
+        player.pause();
         soundRef.current = null;
-        setActiveSound(null);
-        setIsPlaying(false);
+        setActiveSoundState(null);
+        setIsPlayingState(false);
       }
     } catch (error) {
       console.error('stopPlayback error:', error);
     }
-  };
+  }, []);
 
-  const value = {
-    activeSound,
-    setActiveSound: (sound) => {
-      soundRef.current = sound;
-      setActiveSound(sound);
-    },
-    isPlaying,
-    setIsPlaying,
-    stopPlayback, // ← La fonction est bien exposée ici
-  };
+  const clearSound = useCallback((player) => {
+    if (soundRef.current === player) {
+      soundRef.current = null;
+      setActiveSoundState(null);
+      setIsPlayingState(false);
+    }
+  }, []);
+
+  const stateValue = useMemo(
+    () => ({ activeSound, isPlaying }),
+    [activeSound, isPlaying]
+  );
+
+  const actionsValue = useMemo(
+    () => ({ setActiveSound, setIsPlaying, stopPlayback, clearSound }),
+    [setActiveSound, setIsPlaying, stopPlayback, clearSound]
+  );
 
   return (
-    <PlayerContext.Provider value={value}>
-      {children}
-    </PlayerContext.Provider>
+    <PlayerActionsContext.Provider value={actionsValue}>
+      <PlayerStateContext.Provider value={stateValue}>
+        {children}
+      </PlayerStateContext.Provider>
+    </PlayerActionsContext.Provider>
   );
 }

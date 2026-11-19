@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import api from '../utils/api';
+import { adaptSettings } from '../utils/adapters';
 import { palette } from '../utils/theme';
 
 const DEFAULTS = {
@@ -63,8 +64,6 @@ const DEFAULTS = {
     login_button: 'Se connecter',
     menu_items: [
       { icon: 'time-outline', label: 'Historique', subtitle: 'Médias récemment vus', color: 'gold' },
-      { icon: 'thumbs-up-outline', label: 'Médias aimés', subtitle: "Vos j'aimes", color: 'red' },
-      { icon: 'bookmark-outline', label: 'Enregistrés', subtitle: 'Regarder plus tard', color: 'green' },
       { icon: 'list-outline', label: 'Playlists', subtitle: 'Vos listes de lecture', color: 'gold' },
     ],
   },
@@ -104,7 +103,7 @@ const DEFAULTS = {
   },
 };
 
-export const SettingsContext = createContext(DEFAULTS);
+export const SettingsContext = createContext({ settings: DEFAULTS, loaded: false });
 
 export function SettingsProvider({ children }) {
   const [settings, setSettings] = useState(DEFAULTS);
@@ -115,10 +114,10 @@ export function SettingsProvider({ children }) {
       try {
         const res = await api.getSettings();
         if (res.success && res.data) {
-          setSettings(mergeDeep(DEFAULTS, res.data));
+          setSettings(mergeDeep(DEFAULTS, adaptSettings(res.data)));
         }
       } catch (_e) {
-        console.log('Settings API unavailable, using defaults');
+        // Paramètres serveur indisponibles : on utilise les défauts locaux
       } finally {
         setLoaded(true);
       }
@@ -134,7 +133,7 @@ export function SettingsProvider({ children }) {
 
 export function useSettings() {
   const ctx = useContext(SettingsContext);
-  return ctx.settings;
+  return ctx.settings || DEFAULTS;
 }
 
 function mergeDeep(target, source) {

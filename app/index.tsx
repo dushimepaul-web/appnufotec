@@ -2,11 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useMemo } from 'react';
 import {
-  Dimensions, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View,
+  Dimensions, Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import BottomNav from '../src/components/BottomNav';
+import MediaCard from '../src/components/MediaCard';
 import { useSettings } from '../src/contexts/SettingsContext';
 import { useTheme } from '../src/contexts/ThemeContext';
+import { useRecent } from '../src/hooks/useMedias';
 import { radius, spacing, typography } from '../src/utils/theme';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -15,6 +18,11 @@ export default function HomeScreen() {
   const { palette } = useTheme();
   const styles = useMemo(() => cs(palette), [palette]);
   const s = useSettings();
+  const { data: recent } = useRecent(10);
+
+  const handleRecentPress = (item: any) => {
+    router.push({ pathname: '/PlayerScreen', params: { slug: item.slug || item.id_media } });
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -43,7 +51,7 @@ export default function HomeScreen() {
 
           {/* Stats */}
           <View style={styles.statsOuter}>
-            {s.stats.map((stat, i) => (
+            {s.stats.map((stat: any, i: number) => (
               <View key={i} style={[styles.statCard, i === 1 && styles.statGold]}>
                 <Text style={[styles.statNum, { color: i === 1 ? palette.gold : palette.green }]}>{stat.value}</Text>
                 <Text style={[styles.statLabel, i === 1 && { color: palette.gold }]}>{stat.label}</Text>
@@ -58,7 +66,7 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.grid}>
-            {(s.quick_actions || []).map((card, i) => (
+            {(s.quick_actions || []).map((card: any, i: number) => (
               <TouchableOpacity key={i} style={styles.gridCard} onPress={() => router.push(card.route as any)} activeOpacity={0.7}>
                 <View style={[styles.gridIcon, { backgroundColor: `${card.color}14` }]}>
                   <Ionicons name={card.icon as any} size={24} color={card.color} />
@@ -68,6 +76,21 @@ export default function HomeScreen() {
               </TouchableOpacity>
             ))}
           </View>
+
+          {/* Derniers médias */}
+          {recent.length > 0 && (
+            <View style={styles.recentSection}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Derniers médias</Text>
+                <View style={styles.sectionLine} />
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recentRow}>
+                {recent.map((item: any) => (
+                  <MediaCard key={String(item.slug || item.id_media)} item={item} horizontal onPress={handleRecentPress} />
+                ))}
+              </ScrollView>
+            </View>
+          )}
 
           {/* WhatsApp */}
           <View style={styles.wa}>
@@ -84,7 +107,14 @@ export default function HomeScreen() {
             </View>
             <Text style={styles.waTitle}>{s.banner.title}</Text>
             <Text style={styles.waText}>{s.banner.text}</Text>
-            <TouchableOpacity style={styles.waBtn} activeOpacity={0.8}>
+            <TouchableOpacity
+              style={styles.waBtn}
+              activeOpacity={0.8}
+              onPress={() => {
+                const msg = `Bonjour ${s.app_name} ${s.app_subtitle}, je vous contacte depuis l'application.`;
+                Linking.openURL(`https://wa.me/${s.contact.whatsapp}?text=${encodeURIComponent(msg)}`).catch(() => {});
+              }}
+            >
               <View style={styles.waBtnInner}>
                 <Ionicons name="logo-whatsapp" size={16} color="#25D366" />
                 <Text style={styles.waBtnText}>{s.banner.button_text}</Text>
@@ -101,7 +131,7 @@ export default function HomeScreen() {
   );
 }
 
-const cs = (p) => StyleSheet.create({
+const cs = (p: any) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: p.whiteOff },
   container: { flex: 1, backgroundColor: p.whiteOff },
   scroll: { flexGrow: 1 },
@@ -142,6 +172,8 @@ const cs = (p) => StyleSheet.create({
   gridDesc: { fontSize: typography.xs, color: p.greyDark, lineHeight: 15 },
 
   wa: { marginHorizontal: spacing.lg, marginBottom: spacing.xl, backgroundColor: '#128C7E', borderRadius: radius.lg, padding: spacing.lg, position: 'relative', overflow: 'hidden', shadowColor: '#128C7E', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 14, elevation: 6 },
+  recentSection: { marginBottom: spacing.xl },
+  recentRow: { paddingHorizontal: spacing.lg, gap: spacing.md },
   waBg: { position: 'absolute', top: -30, right: -30, width: 140, height: 140, borderRadius: 70, backgroundColor: `${p.white}08` },
   waBg2: { position: 'absolute', bottom: -20, left: -20, width: 90, height: 90, borderRadius: 45, backgroundColor: `${p.white}06` },
   waTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md },

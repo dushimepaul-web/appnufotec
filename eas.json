@@ -22,6 +22,10 @@
       "android": {
         "resourceClass": "medium",
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://nufotec.com/api/v1",
+        "EXPO_PUBLIC_SITE_URL": "https://nufotec.com"
       }
     },
     "production": {
@@ -31,6 +35,10 @@
       },
       "android": {
         "resourceClass": "medium"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://nufotec.com/api/v1",
+        "EXPO_PUBLIC_SITE_URL": "https://nufotec.com"
       }
     }
   },

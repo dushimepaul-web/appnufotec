@@ -1,193 +1,235 @@
-// src/utils/api.js
-// ⚙️  Remplacez BASE_URL par l'URL de votre serveur CodeIgniter
-const BASE_URL = 'https://nufotec.com/api/mobile';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
-const DEFAULT_LANG = 'fr';
+function resolveDevApiBase() {
+  if (Platform.OS === 'web') return 'http://127.0.0.1:8000/api/v1';
+  const hostUri = Constants.expoConfig?.hostUri || Constants.expoGoConfig?.debuggerHost;
+  const host = hostUri?.split(':')[0];
+  if (host && host !== 'localhost' && host !== '127.0.0.1') {
+    return `http://${host}:8000/api/v1`;
+  }
+  return Platform.OS === 'android'
+    ? 'http://10.0.2.2:8000/api/v1'
+    : 'http://127.0.0.1:8000/api/v1';
+}
 
-const BASE_DOMAIN = 'https://nufotec.com';
+const DEFAULT_API_BASE = __DEV__ ? resolveDevApiBase() : 'https://nufotec.com/api/v1';
+const API_BASE = (process.env.EXPO_PUBLIC_API_URL || DEFAULT_API_BASE).replace(/\/+$/, '');
+
+export const BASE_URL = API_BASE;
+export const SITE_URL = (process.env.EXPO_PUBLIC_SITE_URL || 'https://nufotec.com').replace(/\/+$/, '');
+
+async function parseJsonResponse(response) {
+  const body = await response.text();
+  if (!body) return null;
+  return JSON.parse(body.replace(/^\uFEFF/, '').replace(/^\u00EF\u00BB\u00BF/, ''));
+}
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function toError(payload, status) {
+  const message = payload?.error?.message || payload?.message || `HTTP ${status}`;
+  const error = new Error(message);
+  error.status = status;
+  error.code = payload?.error?.code || null;
+  error.details = payload?.error?.details || null;
+  return error;
+}
+
+function buildQuery(params = {}) {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== null && value !== undefined && value !== '') {
+      search.append(key, typeof value === 'boolean' ? String(value) : String(value));
+    }
+  });
+  return search.toString();
+}
 
 export function resolveUrl(path) {
   if (!path) return path;
   if (path.startsWith('http://') || path.startsWith('https://')) return path;
-  if (path.startsWith('/')) return `${BASE_DOMAIN}${path}`;
-  return `${BASE_DOMAIN}/${path}`;
+  if (path.startsWith('/')) return `${BASE_URL}${path}`;
+  return `${BASE_URL}/${path}`;
 }
 
 class ApiService {
   constructor() {
     this.baseUrl = BASE_URL;
-    this.lang = DEFAULT_LANG;
   }
 
-  setLang(lang) {
-    this.lang = lang;
-  }
+  async request(endpoint, params = {}, retries = 2, silent = false, token = null) {
+    const query = buildQuery(params);
+    const url = `${this.baseUrl}/${endpoint}${query ? `?${query}` : ''}`;
+    const headers = { Accept: 'application/json' };
+    if (token) headers.Authorization = `Bearer ${token}`;
 
-  async request(endpoint, params = {}) {
-    const queryParams = new URLSearchParams({ lang: this.lang, ...params });
-    const url = `${this.baseUrl}/${endpoint}?${queryParams}`;
-
-    try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const response = await fetchWithTimeout(url, { method: 'GET', headers });
+        const payload = await parseJsonResponse(response);
+        if (!response.ok || payload?.success === false) throw toError(payload, response.status);
+        return payload;
+      } catch (error) {
+        if (attempt < retries) {
+          await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)));
+          continue;
+        }
+        if (!silent) console.error(`API Error [${endpoint}]:`, error.message);
+        throw error;
       }
-
-      return await response.json();
-    } catch (error) {
-      console.error(`API Error [${endpoint}]:`, error.message);
-      throw error;
     }
   }
 
-  async post(endpoint, body = {}) {
+  async post(endpoint, body = {}, retries = 1, silent = false, token = null) {
     const url = `${this.baseUrl}/${endpoint}`;
-    try {
-      const formData = new FormData();
-      Object.entries(body).forEach(([key, val]) => formData.append(key, val));
+    const headers = { Accept: 'application/json', 'Content-Type': 'application/json' };
+    if (token) headers.Authorization = `Bearer ${token}`;
 
-      const response = await fetch(url, {
-        method: 'POST',
-        body: formData,
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const response = await fetchWithTimeout(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body ?? {}),
+        });
+        const payload = await parseJsonResponse(response);
+        if (!response.ok || payload?.success === false) throw toError(payload, response.status);
+        return payload;
+      } catch (error) {
+        if (attempt < retries) {
+          await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)));
+          continue;
+        }
+        if (!silent) console.error(`API POST Error [${endpoint}]:`, error.message);
+        throw error;
       }
-      return await response.json();
-    } catch (error) {
-      console.error(`API POST Error [${endpoint}]:`, error.message);
-      throw error;
     }
   }
 
-  // ── Endpoints Médias ──────────────────────────────────────────────
-
-  getMedias({ type = 'all', limit = 20, offset = 0, category } = {}) {
-    const params = { limit, offset };
-    if (type !== 'all') params.type = type;
-    if (category) params.category = category;
-    return this.request('medias', params);
+  async login(login, password) {
+    return this.post('auth/login', { login, password }, 0, false);
   }
 
-  getMedia(identifier) {
-    return this.request(`media/${identifier}`);
+  async logout(token) {
+    return this.post('auth/logout', {}, 0, true, token);
+  }
+
+  getMedias({ page = 1, perPage = 20, categorie, q, tri = 'recent' } = {}) {
+    return this.request('medias', { page, per_page: perPage, categorie, q, tri });
+  }
+
+  getMedia(slug) {
+    return this.request(`medias/${encodeURIComponent(slug)}`, {}, 0, true);
+  }
+
+  getMediaComments(slug, { page = 1, perPage = 20 } = {}) {
+    return this.request(`medias/${encodeURIComponent(slug)}/commentaires`, { page, per_page: perPage });
+  }
+
+  getMediaCategories() {
+    return this.request('medias/categories');
+  }
+
+  getMediaCollections() {
+    return this.request('medias/collections');
+  }
+
+  getMediaCollection(slug) {
+    return this.request(`medias/collections/${encodeURIComponent(slug)}`);
+  }
+
+  searchMedia(q, perPage = 20) {
+    return this.getMedias({ q, perPage });
+  }
+
+  getPopular(perPage = 20) {
+    return this.getMedias({ tri: 'populaire', perPage });
+  }
+
+  getRecent(perPage = 20) {
+    return this.getMedias({ tri: 'recent', perPage });
   }
 
   getCategories() {
-    return this.request('categories');
-  }
-
-  search(query, limit = 20) {
-    return this.request('search', { q: query, limit });
-  }
-
-  getPopular(limit = 20) {
-    return this.request('popular', { limit });
-  }
-
-  getRecent(limit = 20) {
-    return this.request('recent', { limit });
-  }
-
-  getSettings() {
-    return this.request('settings');
+    return this.getMediaCategories();
   }
 
   getPlaylists() {
-    return this.request('playlists');
+    return this.getMediaCollections();
   }
 
-  recordView(id_media) {
-    return this.post('record-view', { id_media });
+  search(query, limit = 20) {
+    return this.searchMedia(query, limit);
   }
 
-  // ── Endpoints Produits ──────────────────────────────────────────────
-
-  /**
-   * Récupérer la liste des produits
-   * @param {Object} options - Options de filtrage
-   * @param {number} options.page - Page (défaut: 1)
-   * @param {number} options.limit - Nombre par page (défaut: 10)
-   * @param {number} options.category_id - ID de la catégorie (optionnel)
-   * @param {string} options.search - Terme de recherche (optionnel)
-   * @returns {Promise} Réponse de l'API
-   */
-  getProducts({ page = 1, limit = 10, category_id = null, search = null } = {}) {
-    const params = { page, limit };
-    if (category_id && category_id !== 'all') params.category_id = category_id;
-    if (search) params.search = search;
-    return this.request('products', params);
+  async recordView(slug) {
+    try {
+      return await this.post(`medias/${encodeURIComponent(slug)}/vue`, {}, 0, true);
+    } catch (error) {
+      if (error?.status === 403) return { success: false, forbidden: true };
+      throw error;
+    }
   }
 
-  /**
-   * Récupérer le détail d'un produit
-   * @param {number|string} identifier - ID ou slug du produit
-   * @returns {Promise} Réponse de l'API avec les détails du produit
-   */
-  getProductDetail(identifier) {
-    return this.request(`products/detail/${identifier}`);
+  getSettings() {
+    return this.request('site/parametres');
   }
 
-  /**
-   * Récupérer les catégories de produits
-   * @returns {Promise} Liste des catégories
-   */
+  getTestimonials() {
+    return this.request('temoignages', {}, 1, true);
+  }
+
+  getNotifications() {
+    return Promise.resolve({ success: true, data: [] });
+  }
+
+  getPays(q) {
+    return this.request('pays', { q });
+  }
+
+  getProducts({ page = 1, perPage = 10, categorie, q, vedette, prixMin, prixMax, devise, tri } = {}) {
+    return this.request('produits', {
+      page,
+      per_page: perPage,
+      categorie,
+      q,
+      vedette,
+      prix_min: prixMin,
+      prix_max: prixMax,
+      devise,
+      tri,
+    });
+  }
+
+  getProductDetail(slug) {
+    return this.request(`produits/${encodeURIComponent(slug)}`, {}, 0, true);
+  }
+
   getProductCategories() {
-    return this.request('products/categories');
+    return this.request('produits/categories');
   }
 
-  /**
-   * Récupérer les produits vedettes (mis en avant)
-   * @param {number} limit - Nombre de produits (défaut: 6)
-   * @returns {Promise} Liste des produits vedettes
-   */
-  getFeaturedProducts(limit = 6) {
-    return this.request('products/featured', { limit });
+  getFeaturedProducts(perPage = 6) {
+    return this.getProducts({ vedette: true, perPage, tri: 'recent' });
   }
 
-  /**
-   * Enregistrer une demande de commande
-   * @param {Object} orderData - Données de la commande
-   * @param {number} orderData.product_id - ID du produit
-   * @param {string} orderData.customer_name - Nom complet du client
-   * @param {string} orderData.customer_phone - Numéro de téléphone
-   * @param {string} orderData.customer_country - Pays
-   * @param {string} orderData.customer_city - Ville
-   * @param {string} orderData.customer_address - Adresse complète
-   * @param {string} orderData.customer_notes - Notes supplémentaires (optionnel)
-   * @returns {Promise} Réponse de l'API avec order_id et message WhatsApp
-   */
-  saveOrder(orderData) {
-    return this.post('products/save_order', orderData);
+  createOrder(slug, orderData) {
+    return this.post(`produits/${encodeURIComponent(slug)}/commander`, orderData);
   }
 
-  /**
-   * Incrémenter le compteur de demande de prix
-   * @param {number} product_id - ID du produit
-   * @returns {Promise} Réponse avec le nouveau compteur
-   */
-  incrementPriceRequest(product_id) {
-    return this.post('products/increment_price_request', { product_id });
-  }
-
-  /**
-   * Générer le lien WhatsApp pour un produit
-   * @param {number} product_id - ID du produit
-   * @param {string} phone_number - Numéro de téléphone (optionnel, défaut: 68862945)
-   * @returns {Promise} Réponse avec l'URL WhatsApp et le message
-   */
-  sendWhatsApp(product_id, phone_number = null) {
-    const data = { product_id };
-    if (phone_number) data.phone_number = phone_number;
-    return this.post('products/send_whatsapp', data);
+  requestPrice(slug) {
+    return this.post(`produits/${encodeURIComponent(slug)}/demande-prix`, {});
   }
 }
 
-export default new ApiService();
+const api = new ApiService();
+export default api;

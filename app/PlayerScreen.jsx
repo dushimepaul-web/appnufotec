@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { useCallback, useContext, useEffect, useRef, useState, useMemo } from 'react';
+import { useContext, useEffect, useRef, useState, useMemo } from 'react';
 import {
   ActivityIndicator, Alert, Dimensions, Image, Linking,
   Platform, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View,
@@ -11,12 +11,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import YoutubeIframe from '../src/components/YoutubeIframe';
 import MediaCard from '../src/components/MediaCard';
-import { PlayerContext } from '../src/contexts/PlayerContext';
+import { PlayerActionsContext } from '../src/contexts/PlayerContext';
 import { useMedia } from '../src/hooks/useMedias';
 import { useOfflineMedia } from '../src/hooks/useOfflineMedia';
 import { radius, spacing, typography } from '../src/utils/theme';
 import { useTheme } from '../src/contexts/ThemeContext';
-import { resolveUrl } from '../src/utils/api';
+import api, { resolveUrl } from '../src/utils/api';
+import { extractYoutubeId } from '../src/utils/youtube';
+import { getDefaultThumbnail } from '../src/utils/thumbnails';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const PLAYER_H = (SCREEN_W * 9) / 16;
@@ -24,35 +26,10 @@ const PLAYER_H = (SCREEN_W * 9) / 16;
 function YoutubePlayer({ youtubeId }) {
   const { palette } = useTheme();
   const styles = useMemo(() => s(palette), [palette]);
-  const [playing, setPlaying] = useState(false);
-  const [ready, setReady] = useState(false);
-
-  const onStateChange = useCallback((state) => {
-    if (state === 'ended') setPlaying(false);
-  }, []);
 
   return (
     <View style={styles.youtubeWrap}>
-      {!ready && Platform.OS !== 'web' && (
-        <View style={styles.loaderOverlay}>
-          <ActivityIndicator size="large" color={palette.green} />
-          <Text style={{ color: '#fff', marginTop: 8, fontSize: 12 }}>Chargement…</Text>
-        </View>
-      )}
-      <YoutubeIframe
-        height={PLAYER_H} width={SCREEN_W} videoId={youtubeId}
-        play={playing} onReady={() => setReady(true)} onChangeState={onStateChange}
-        webViewProps={{ allowsInlineMediaPlayback: true, mediaPlaybackRequiresUserAction: false, androidLayerType: 'hardware' }}
-        initialPlayerParams={{ rel: false, modestbranding: true, controls: true, preventFullScreen: false }}
-      />
-      {ready && !playing && Platform.OS !== 'web' && (
-        <TouchableOpacity style={styles.ytPlayOverlay} onPress={() => setPlaying(true)} activeOpacity={0.85}>
-          <View style={styles.ytPlayBtn}>
-            <Ionicons name="logo-youtube" size={28} color={palette.red} />
-            <Text style={styles.ytPlayText}>Lire la vidéo</Text>
-          </View>
-        </TouchableOpacity>
-      )}
+      <YoutubeIframe height={PLAYER_H} width={SCREEN_W} videoId={youtubeId} />
     </View>
   );
 }
@@ -63,7 +40,7 @@ function LocalVideoPlayer({ uri }) {
     if (Platform.OS !== 'web') p.play();
   });
   return (
-    <VideoView style={{ flex: 1 }} player={player} allowsFullscreen allowsPictureInPicture contentFit="contain" />
+    <VideoView style={{ flex: 1 }} player={player} fullscreenOptions={{ enable: true }} allowsPictureInPicture contentFit="contain" />
   );
 }
 
@@ -125,7 +102,7 @@ function PdfPlayer({ url, titre, isOfflineUri }) {
   );
 }
 
-function AudioPlayer({ media, isPlaying, onPlayPause, soundRef, isOffline: isOff, position, duration }) {
+function AudioPlayer({ media, isPlaying, onPlayPause, player, isOffline: isOff, position, duration }) {
   const { palette } = useTheme();
   const styles = useMemo(() => s(palette), [palette]);
   const [isSeeking, setIsSeeking] = useState(false);
@@ -142,19 +119,15 @@ function AudioPlayer({ media, isPlaying, onPlayPause, soundRef, isOffline: isOff
   const progress = duration > 0 ? position / duration : 0;
 
   const seekTo = async (ratio) => {
-    const sound = soundRef?.current;
-    if (!sound || duration <= 0) return;
-    try { await sound.setPositionAsync(Math.floor(ratio * duration)); } catch {}
+    if (!player || duration <= 0) return;
+    try { await player.seekTo((ratio * duration) / 1000); } catch {}
   };
 
   const skip = async (deltaMs) => {
-    const sound = soundRef?.current;
-    if (!sound) return;
+    if (!player || duration <= 0) return;
     try {
-      const st = await sound.getStatusAsync();
-      if (!st.isLoaded) return;
-      const next = Math.max(0, Math.min((st.positionMillis ?? 0) + deltaMs, duration));
-      await sound.setPositionAsync(next);
+      const next = Math.max(0, Math.min(position + deltaMs, duration));
+      await player.seekTo(next / 1000);
     } catch {}
   };
 
@@ -167,7 +140,7 @@ function AudioPlayer({ media, isPlaying, onPlayPause, soundRef, isOffline: isOff
       <View style={styles.audioInner}>
         <View style={styles.albumArtWrap}>
           <Image
-            source={media.thumbnail_url ? { uri: media.thumbnail_url } : require('../assets/placeholder.png')}
+            source={media.thumbnail_url ? { uri: media.thumbnail_url } : getDefaultThumbnail(media.type)}
             style={styles.albumArt} resizeMode="cover"
           />
         </View>
@@ -243,31 +216,64 @@ function OfflineBadge() {
 
 export default function PlayerScreen() {
   const { palette } = useTheme();
-  const { id, offline: offlineParam } = useLocalSearchParams();
-  const { data: apiMedia, similar, loading: apiLoading } = useMedia(id);
+  const { slug, id } = useLocalSearchParams();
+  const identifier = slug || id;
+  const { data: apiMedia, similar, loading: apiLoading } = useMedia(identifier);
   const insets = useSafeAreaInsets();
-  const { stopPlayback, setActiveSound } = useContext(PlayerContext);
+  const { setActiveSound, clearSound } = useContext(PlayerActionsContext);
 
   const { offlineMap, isOffline, getLocalUri, downloadMedia, isDownloading, getDownloadProgress, cancelDownload } = useOfflineMedia();
 
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isLiked, setIsLiked] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
-  const [audioPosition, setAudioPosition] = useState(0);
-  const [audioDuration, setAudioDuration] = useState(0);
-  const soundRef = useRef(null);
   const styles = useMemo(() => s(palette), [palette]);
 
-  const offlineEntry = offlineMap[String(id)] || null;
+  const offlineEntry = offlineMap[String(identifier)] || null;
   const media = apiMedia || offlineEntry;
   const loading = apiLoading && !offlineEntry;
 
-  const mediaId = media?.id_media;
+  const mediaId = media?.slug || media?.id_media || identifier;
   const offline = isOffline(mediaId);
   const localUri = getLocalUri(mediaId);
   const downloading = isDownloading(mediaId);
   const downloadProgress = getDownloadProgress(mediaId) ?? 0;
+  const youtubeId = media?.youtube_id
+    || extractYoutubeId(media?.file_url)
+    || extractYoutubeId(media?.lien);
   const playbackUri = localUri ?? resolveUrl(media?.file_url);
+
+  const player = useAudioPlayer(media?.type === 'audio' && playbackUri ? playbackUri : null, { updateInterval: 250 });
+  const audioStatus = useAudioPlayerStatus(player);
+  const isPlaying = audioStatus.playing;
+  const audioPosition = audioStatus.currentTime * 1000;
+  const audioDuration = audioStatus.duration * 1000;
+
+  const playerRef = useRef(player);
+  useEffect(() => { playerRef.current = player; }, [player]);
+
+  useEffect(() => { return () => clearSound(playerRef.current); }, [clearSound]);
+  useEffect(() => {
+    setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+      interruptionMode: 'duckOthers',
+    }).catch(() => {});
+  }, []);
+  useEffect(() => {
+    if (media?.type === 'audio' && playbackUri) setActiveSound(player);
+  }, [media?.type, playbackUri, player, setActiveSound]);
+  useEffect(() => {
+    if (!media?.slug) return;
+    api.recordView(media.slug).catch(() => {});
+  }, [media?.slug]);
+
+  const handlePlayPause = () => {
+    if (!player) return;
+    if (audioStatus.playing) {
+      player.pause();
+    } else {
+      if (audioStatus.didJustFinish) player.seekTo(0);
+      player.play();
+    }
+  };
 
   const isPdf = (m) => {
     if (!m) return false;
@@ -276,92 +282,28 @@ export default function PlayerScreen() {
     return url.endsWith('.pdf') || url.includes('.pdf?');
   };
 
-  const isLocalVideo = (m) => m && m.type === 'video' && !m.youtube_id && !!playbackUri;
-
-  useEffect(() => { return () => cleanupSound(); }, []);
-  useEffect(() => {
-    cleanupSound();
-    setAudioPosition(0);
-    setAudioDuration(0);
-  }, [id]);
-  useEffect(() => {
-    if (media?.type === 'audio' && playbackUri) loadAudio();
-  }, [media?.id_media, localUri, media?.type, playbackUri]);
-
-  const cleanupSound = async () => {
-    const sound = soundRef.current;
-    if (!sound) return;
-    soundRef.current = null;
-    try {
-      const st = await sound.getStatusAsync();
-      if (st.isLoaded) { await sound.stopAsync(); await sound.unloadAsync(); }
-    } catch {}
-    setIsPlaying(false);
-  };
-
-  const loadAudio = async () => {
-    try {
-      await stopPlayback();
-      await cleanupSound();
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false, staysActiveInBackground: true,
-        playsInSilentModeIOS: true, shouldDuckAndroid: true,
-      });
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: playbackUri }, { shouldPlay: false }
-      );
-      soundRef.current = newSound;
-      await setActiveSound(newSound);
-      newSound.setOnPlaybackStatusUpdate((s) => {
-        if (s.isLoaded) {
-          setIsPlaying(s.isPlaying);
-          setAudioPosition(s.positionMillis ?? 0);
-          setAudioDuration(s.durationMillis ?? 0);
-        }
-        if (s.didJustFinish) setIsPlaying(false);
-      });
-    } catch (e) { console.error('loadAudio:', e.message); }
-  };
-
-  const handlePlayPause = async () => {
-    const sound = soundRef.current;
-    if (!sound) return;
-    try {
-      if (isPlaying) { await sound.pauseAsync(); setIsPlaying(false); }
-      else { await sound.playAsync(); setIsPlaying(true); }
-    } catch {}
-  };
-
-  const handleLike = () => {
-    setIsLiked(!isLiked);
-    Alert.alert(isLiked ? 'Like retiré' : "J'aime", isLiked ? "Vous n'aimez plus ce contenu" : 'Merci !');
-  };
-
-  const handleSave = () => {
-    setIsSaved(!isSaved);
-    Alert.alert(isSaved ? 'Retiré' : 'Sauvegardé', isSaved ? 'Retiré de vos favoris' : 'Ajouté aux favoris');
-  };
+  const isLocalVideo = (m) => m && m.type === 'video' && !youtubeId && !!playbackUri;
 
   const handleShare = async () => {
     try {
-      const shareUrl = `https://nufotec.com/media/detail/${media?.slug}`;
+      const shareUrl = `https://nufotec.com/media/${media?.slug}`;
       await Share.share({ message: `Découvrez "${media?.titre}" sur NUFOTEC BURUNDI !\n${shareUrl}`, title: media?.titre, url: shareUrl });
     } catch (e) { console.error('share:', e); }
   };
 
   const handleDownload = async () => {
     if (offline) {
-      Alert.alert('Deja disponible hors-ligne', 'Ce média est déjà téléchargé sur votre appareil.', [
+      Alert.alert('Déjà disponible hors-ligne', 'Ce média est déjà téléchargé sur votre appareil.', [
         { text: 'Voir les téléchargements', onPress: () => router.push('/OfflineScreen') },
         { text: 'OK', style: 'cancel' },
       ]);
       return;
     }
-    if (media?.youtube_id) {
+    if (media?.youtube_id || youtubeId) {
       Alert.alert('Information', 'Les vidéos YouTube ne peuvent pas être téléchargées hors-ligne.');
       return;
     }
-    if (!media?.file_url) {
+    if (!media?.download_url && !media?.file_url) {
       Alert.alert('Téléchargement impossible', 'Ce média n\'a pas de fichier téléchargeable.');
       return;
     }
@@ -374,7 +316,7 @@ export default function PlayerScreen() {
     }
     try {
       await downloadMedia(media);
-      Alert.alert('Telechargé', `"${media.titre}" est maintenant disponible hors-ligne.`, [
+      Alert.alert('Téléchargé', `"${media.titre}" est maintenant disponible hors-ligne.`, [
         { text: 'Voir les téléchargements', onPress: () => router.push('/OfflineScreen') },
         { text: 'OK', style: 'cancel' },
       ]);
@@ -385,15 +327,15 @@ export default function PlayerScreen() {
 
   const renderPlayer = () => {
     if (isPdf(media)) return <PdfPlayer url={localUri ?? resolveUrl(media.file_url)} titre={media.titre} isOfflineUri={!!localUri} />;
-    if (media.youtube_id) return <YoutubePlayer youtubeId={media.youtube_id} />;
+    if (youtubeId) return <YoutubePlayer youtubeId={youtubeId} />;
     if (isLocalVideo(media)) return <LocalVideoPlayer uri={playbackUri} />;
     if (media.type === 'audio') {
       return (
         <AudioPlayer media={media} isPlaying={isPlaying} onPlayPause={handlePlayPause}
-          soundRef={soundRef} isOffline={offline} position={audioPosition} duration={audioDuration} />
+          player={player} isOffline={offline} position={audioPosition} duration={audioDuration} />
       );
     }
-    return <Image source={{ uri: media.thumbnail_url }} style={{ flex: 1 }} resizeMode="contain" />;
+    return <Image source={{ uri: resolveUrl(media.preview_url || media.thumbnail_url) }} style={{ flex: 1 }} resizeMode="contain" />;
   };
 
   const renderDownloadIcon = () => {
@@ -488,14 +430,6 @@ export default function PlayerScreen() {
           ) : null}
 
           <View style={styles.actionsRow}>
-            <TouchableOpacity style={[styles.actionBtn, isLiked && styles.actionBtnActive]} onPress={handleLike}>
-              <Ionicons name={isLiked ? 'thumbs-up' : 'thumbs-up-outline'} size={20} color={isLiked ? palette.green : palette.greyDark} />
-              <Text style={[styles.actionLabel, isLiked && styles.actionLabelActive]}>J&apos;aime</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionBtn, isSaved && styles.actionBtnActive]} onPress={handleSave}>
-              <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={20} color={isSaved ? palette.green : palette.greyDark} />
-              <Text style={[styles.actionLabel, isSaved && styles.actionLabelActive]}>Sauver</Text>
-            </TouchableOpacity>
             <TouchableOpacity style={styles.actionBtn} onPress={handleShare}>
               <Ionicons name="share-social-outline" size={20} color={palette.greyDark} />
               <Text style={styles.actionLabel}>Partager</Text>
@@ -532,8 +466,8 @@ export default function PlayerScreen() {
               <Text style={styles.sectionTitle}>Suggestions</Text>
             </View>
             {similar.map((item) => (
-              <MediaCard key={item.id_media} item={item}
-                onPress={(i) => router.push({ pathname: '/PlayerScreen', params: { id: i.id_media } })} />
+              <MediaCard key={item.slug || item.id_media} item={item}
+                onPress={(i) => router.push({ pathname: '/PlayerScreen', params: { slug: i.slug || i.id_media } })} />
             ))}
           </View>
         )}

@@ -31,9 +31,9 @@ function OfflineCard({ item, onPlay, onDelete }) {
       default: return palette.green;
     }
   };
-  const date = new Date(item.downloadedAt).toLocaleDateString('fr-FR', {
-    day: '2-digit', month: 'short', year: 'numeric',
-  });
+  const date = item.downloadedAt
+    ? new Date(item.downloadedAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+    : '—';
   const sizeText = item.size
     ? item.size < 1024 * 1024
       ? `${(item.size / 1024).toFixed(0)} Ko`
@@ -85,7 +85,7 @@ export default function OfflineScreen() {
   const { offlineList, totalSizeFormatted, removeOfflineMedia, clearAllOffline, initialized } = useOfflineMedia();
 
   const handlePlay = useCallback((item) => {
-    router.push({ pathname: '/PlayerScreen', params: { id: item.id_media, offline: '1' } });
+    router.push({ pathname: '/PlayerScreen', params: { slug: item.slug || item.id_media, offline: '1' } });
   }, []);
 
   const handleDelete = useCallback((item) => {
@@ -93,7 +93,7 @@ export default function OfflineScreen() {
       { text: 'Annuler', style: 'cancel' },
       { text: 'Supprimer', style: 'destructive', onPress: () => removeOfflineMedia(item.id_media) },
     ]);
-  }, [removeOfflineMedia]);
+  }, [removeOfflineMedia, s.delete_title]);
 
   const handleClearAll = useCallback(() => {
     if (offlineList.length === 0) return;
@@ -101,9 +101,9 @@ export default function OfflineScreen() {
       { text: 'Annuler', style: 'cancel' },
       { text: s.clear_all, style: 'destructive', onPress: clearAllOffline },
     ]);
-  }, [offlineList.length, totalSizeFormatted, clearAllOffline]);
+  }, [offlineList.length, totalSizeFormatted, clearAllOffline, s.clear_all]);
 
-  const ListHeader = () => (
+  const listHeader = (
     <View style={styles.listHeader}>
       {offlineList.length > 0 ? (
         <View style={styles.statsRow}>
@@ -125,19 +125,19 @@ export default function OfflineScreen() {
     </View>
   );
 
-  const Empty = () => (
+  const emptyComponent = initialized ? (
     <View style={styles.empty}>
       <View style={styles.emptyIcon}>
         <Ionicons name="cloud-offline-outline" size={42} color={palette.grey} />
       </View>
       <Text style={styles.emptyTitle}>{s.empty_title}</Text>
       <Text style={styles.emptyText}>{s.empty_text}</Text>
-      <TouchableOpacity style={styles.emptyBtn} onPress={() => router.back()}>
-        <Ionicons name="arrow-back" size={16} color={palette.white} />
+      <TouchableOpacity style={styles.emptyBtn} onPress={() => router.push('/medias')}>
+        <Ionicons name="arrow-forward" size={16} color={palette.white} />
         <Text style={styles.emptyBtnText}>{s.empty_button}</Text>
       </TouchableOpacity>
     </View>
-  );
+  ) : null;
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -156,12 +156,12 @@ export default function OfflineScreen() {
 
       <FlatList
         data={offlineList}
-        keyExtractor={(item) => String(item.id_media)}
+        keyExtractor={(item) => String(item.slug || item.id_media)}
         renderItem={({ item }) => (
           <OfflineCard item={item} onPlay={handlePlay} onDelete={handleDelete} />
         )}
-        ListHeaderComponent={<ListHeader />}
-        ListEmptyComponent={initialized ? <Empty /> : null}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={emptyComponent}
         contentContainerStyle={offlineList.length === 0 ? styles.emptyContainer : styles.listContent}
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={styles.separator} />}

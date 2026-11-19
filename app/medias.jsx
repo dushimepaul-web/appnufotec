@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View,
+  ActivityIndicator, Animated, FlatList, Keyboard, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import BottomNav from '../src/components/BottomNav';
 import CategoryChips from '../src/components/CategoryChips';
@@ -14,11 +14,73 @@ import { spacing, typography } from '../src/utils/theme';
 
 const TYPE_TABS = ['all', 'video', 'audio', 'pdf'];
 
+function SearchBar({ query, onChange, onSearch, onClose, palette }) {
+  const inputRef = useRef(null);
+  const slideAnim = useState(() => new Animated.Value(0))[0];
+
+  useEffect(() => {
+    Animated.spring(slideAnim, {
+      toValue: 1, useNativeDriver: true, friction: 9, tension: 50,
+    }).start();
+    setTimeout(() => inputRef.current?.focus(), 100);
+  }, [slideAnim]);
+
+  const onClosePress = () => {
+    Animated.timing(slideAnim, {
+      toValue: 0, duration: 180, useNativeDriver: true,
+    }).start(() => onClose());
+  };
+
+  return (
+    <Animated.View style={{
+      paddingHorizontal: spacing.lg, marginBottom: spacing.md, marginTop: spacing.sm,
+      transform: [{ translateY: slideAnim.interpolate({ inputRange: [0, 1], outputRange: [-20, 0] }) }],
+      opacity: slideAnim,
+    }}>
+      <View style={{
+        flexDirection: 'row', alignItems: 'center',
+        backgroundColor: palette.whiteOff, borderRadius: 14,
+        height: 48, borderWidth: 1, borderColor: palette.greyLight,
+      }}>
+        <TouchableOpacity onPress={onSearch} activeOpacity={0.7} style={{ paddingLeft: 14, paddingRight: 6, height: 48, justifyContent: 'center' }}>
+          <Ionicons name="search" size={20} color={palette.green} />
+        </TouchableOpacity>
+        <TextInput
+          ref={inputRef}
+          value={query}
+          onChangeText={onChange}
+          placeholder="Rechercher un média..."
+          placeholderTextColor={palette.grey}
+          returnKeyType="search"
+          onSubmitEditing={onSearch}
+          style={{ flex: 1, paddingHorizontal: 8, color: palette.dark, fontSize: 14, fontWeight: '500', height: 48 }}
+        />
+        <TouchableOpacity activeOpacity={0.7} style={{
+          flexDirection: 'row', alignItems: 'center', gap: 5,
+          backgroundColor: palette.white, borderRadius: 10,
+          paddingHorizontal: 12, paddingVertical: 8, marginRight: 5,
+          borderWidth: 1, borderColor: palette.greyLight,
+          shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
+        }}>
+          <Ionicons name="options-outline" size={16} color={palette.green} />
+          <Text style={{ color: palette.dark, fontSize: 12, fontWeight: '600' }}>Filtrer</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={onClosePress} activeOpacity={0.7} style={{ paddingHorizontal: 10, height: 48, justifyContent: 'center' }}>
+          <Ionicons name="close" size={20} color={palette.grey} />
+        </TouchableOpacity>
+      </View>
+    </Animated.View>
+  );
+}
+
 export default function MediasScreen() {
   const { palette } = useTheme();
   const styles = useMemo(() => s(palette), [palette]);
   const m = useSettings().media;
   const [selectedTab, setSelectedTab] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchVisible, setSearchVisible] = useState(false);
 
   const isTypeTab = TYPE_TABS.includes(selectedTab);
   const typeParam = isTypeTab ? selectedTab : 'all';
@@ -28,14 +90,20 @@ export default function MediasScreen() {
     type: typeParam,
     category: categoryParam,
     limit: 20,
+    q: searchTerm || undefined,
   });
 
   const handlePress = useCallback((item) => {
     router.push({
       pathname: '/PlayerScreen',
-      params: { id: item.id_media, slug: item.slug },
+      params: { slug: item.slug || item.id_media },
     });
   }, []);
+
+  const handleSearch = useCallback(() => {
+    Keyboard.dismiss();
+    setSearchTerm(searchQuery.trim());
+  }, [searchQuery]);
 
   const renderItem = useCallback(
     ({ item }) => <MediaCard item={item} onPress={handlePress} />,
@@ -64,6 +132,17 @@ export default function MediasScreen() {
         </View>
       );
     }
+    if (searchTerm.trim() && data.length === 0) {
+      return (
+        <View style={styles.emptyWrap}>
+          <View style={[styles.emptyIconBox, { backgroundColor: `${palette.gold}10` }]}>
+            <Ionicons name="search-outline" size={32} color={palette.gold} />
+          </View>
+          <Text style={[styles.emptyTitle, { color: palette.dark }]}>Aucun résultat</Text>
+          <Text style={styles.emptySub}>Aucun média trouvé pour « {searchTerm} »</Text>
+        </View>
+      );
+    }
     return (
       <View style={styles.emptyWrap}>
         <View style={styles.emptyIconBox}>
@@ -77,9 +156,9 @@ export default function MediasScreen() {
 
   const ListHeader = useCallback(
     () => (
-      <CategoryChips selected={selectedTab} onSelect={setSelectedTab} />
+      <CategoryChips selected={selectedTab} onSelect={setSelectedTab} onSearchPress={() => setSearchVisible(v => !v)} searchActive={searchVisible} />
     ),
-    [selectedTab]
+    [selectedTab, searchVisible]
   );
 
   return (
@@ -89,9 +168,11 @@ export default function MediasScreen() {
         <Text style={styles.pageSub}>{m.subtitle}</Text>
       </View>
 
+      {searchVisible && <SearchBar query={searchQuery} onChange={setSearchQuery} onSearch={handleSearch} onClose={() => { setSearchQuery(''); setSearchTerm(''); setSearchVisible(false); }} palette={palette} />}
+
       <FlatList
         data={data}
-        keyExtractor={(item) => String(item.id_media)}
+        keyExtractor={(item, index) => (item.slug ? String(item.slug) : `idx-${index}`)}
         renderItem={renderItem}
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={renderEmpty}
@@ -117,6 +198,18 @@ export default function MediasScreen() {
       )}
 
       <BottomNav />
+
+      <TouchableOpacity onPress={() => router.push('/login')} activeOpacity={0.85} style={{
+        position: 'absolute', bottom: 120, right: 20,
+        width: 54, height: 54, borderRadius: 27,
+        backgroundColor: palette.green,
+        justifyContent: 'center', alignItems: 'center',
+        shadowColor: palette.green, shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.4, shadowRadius: 16, elevation: 10,
+        zIndex: 999,
+      }}>
+        <Ionicons name="chatbubble-ellipses" size={26} color="#fff" />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -129,9 +222,9 @@ const s = (p) => StyleSheet.create({
   },
   pageTitle: { fontSize: 28, fontWeight: '900', color: p.dark, letterSpacing: 0.5 },
   pageSub: { fontSize: typography.sm, color: p.greyDark, marginTop: 2 },
-  list: { paddingTop: spacing.sm },
+  list: { paddingTop: spacing.sm, paddingBottom: spacing.xxl },
   footerLoader: { paddingVertical: spacing.xl, alignItems: 'center' },
-  emptyWrap: { flex: 1, alignItems: 'center', paddingTop: 100, paddingHorizontal: spacing.xl },
+  emptyWrap: { flex: 1, alignItems: 'center', paddingTop: 80, paddingHorizontal: spacing.xl },
   emptyIconBox: { width: 80, height: 80, borderRadius: 40, backgroundColor: `${p.green}08`, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.md },
   emptyEmoji: { fontSize: 32 },
   emptyTitle: { fontSize: typography.lg, fontWeight: '700', color: p.dark, marginBottom: spacing.xs, textAlign: 'center' },

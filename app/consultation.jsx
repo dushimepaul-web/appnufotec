@@ -11,6 +11,24 @@ import { useSettings } from '../src/contexts/SettingsContext';
 import { useTheme } from '../src/contexts/ThemeContext';
 import { radius, spacing, typography } from '../src/utils/theme';
 
+function Field({ icon, label, required: req, helper, children }) {
+  const { palette } = useTheme();
+  const styles = useMemo(() => cs(palette), [palette]);
+  return (
+    <View style={styles.fieldBlock}>
+      <View style={styles.fieldLabelRow}>
+        <View style={[styles.fieldIconWrap, { backgroundColor: `${palette.green}12` }]}>
+          <Ionicons name={icon} size={14} color={palette.green} />
+        </View>
+        <Text style={styles.fieldLabel}>{label}</Text>
+        {req && <Text style={styles.required}> *</Text>}
+      </View>
+      {helper && <Text style={styles.helper}>{helper}</Text>}
+      {children}
+    </View>
+  );
+}
+
 export default function ConsultationScreen() {
   const { palette } = useTheme();
   const styles = useMemo(() => cs(palette), [palette]);
@@ -31,11 +49,12 @@ export default function ConsultationScreen() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') { Alert.alert('Permission refusée', "Autorisez l'accès à la galerie."); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsMultipleSelection: true, quality: 0.8,
+      mediaTypes: ['images'], allowsMultipleSelection: true, quality: 0.8,
     });
     if (!result.canceled) {
       const newImages = [...examImages, ...result.assets];
-      newImages.length <= 5 ? setExamImages(newImages) : Alert.alert('Limite atteinte', 'Maximum 5 photos.');
+      if (newImages.length <= 5) setExamImages(newImages);
+      else Alert.alert('Limite atteinte', 'Maximum 5 photos.');
     }
   };
 
@@ -45,7 +64,8 @@ export default function ConsultationScreen() {
     const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
     if (!result.canceled) {
       const newImages = [...examImages, result.assets[0]];
-      newImages.length <= 5 ? setExamImages(newImages) : Alert.alert('Limite atteinte', 'Maximum 5 photos.');
+      if (newImages.length <= 5) setExamImages(newImages);
+      else Alert.alert('Limite atteinte', 'Maximum 5 photos.');
     }
   };
 
@@ -83,20 +103,6 @@ export default function ConsultationScreen() {
       setExamImages([]);
     }, 2000);
   };
-
-  const Field = ({ icon, label, required: req, helper, children }) => (
-    <View style={styles.fieldBlock}>
-      <View style={styles.fieldLabelRow}>
-        <View style={[styles.fieldIconWrap, { backgroundColor: `${palette.green}12` }]}>
-          <Ionicons name={icon} size={14} color={palette.green} />
-        </View>
-        <Text style={styles.fieldLabel}>{label}</Text>
-        {req && <Text style={styles.required}> *</Text>}
-      </View>
-      {helper && <Text style={styles.helper}>{helper}</Text>}
-      {children}
-    </View>
-  );
 
   return (
     <View style={[styles.root, { paddingBottom: insets.bottom }]}>
@@ -222,7 +228,7 @@ export default function ConsultationScreen() {
           <View style={styles.infoBox}>
             <Ionicons name="information-circle" size={16} color={palette.gold} />
             <Text style={styles.infoText}>
-              Les photos seront envoyées manuellement après l&apos;ouverture de WhatsApp. Un reçu de paiement peut être joint après validation.
+              Les photos seront envoyées manuellement après l’ouverture de WhatsApp. Un reçu de paiement peut être joint après validation.
             </Text>
           </View>
 

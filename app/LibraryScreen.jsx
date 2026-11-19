@@ -1,20 +1,37 @@
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { router } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Header from '../src/components/Header';
 import { useSettings } from '../src/contexts/SettingsContext';
-import { radius, spacing, typography } from '../src/utils/theme';
-import { useMemo } from 'react';
 import { useTheme } from '../src/contexts/ThemeContext';
+import api from '../src/utils/api';
+import { radius, spacing, typography } from '../src/utils/theme';
 
 export default function LibraryScreen() {
   const { palette } = useTheme();
   const styles = useMemo(() => cs(palette), [palette]);
   const COLOR_MAP = { gold: palette.gold, red: palette.red, green: palette.green };
   const s = useSettings().library;
+  const [playlists, setPlaylists] = useState([]);
   const menuItems = s.menu_items.map(item => ({
     ...item,
     color: COLOR_MAP[item.color] || palette.green,
   }));
+
+  useEffect(() => {
+    api.getPlaylists()
+      .then(res => { if (res.success) setPlaylists(res.data || []); })
+      .catch(() => {});
+  }, []);
+
+  const handlePlaylistsPress = () => {
+    if (playlists.length === 0) {
+      Alert.alert('Playlists', 'Aucune playlist disponible pour le moment.');
+      return;
+    }
+    Alert.alert('Playlists', `${playlists.length} playlist(s) disponible(s).`);
+  };
 
   return (
     <View style={styles.root}>
@@ -26,7 +43,7 @@ export default function LibraryScreen() {
         </View>
         <Text style={styles.promptTitle}>{s.login_title}</Text>
         <Text style={styles.promptSub}>{s.login_subtitle}</Text>
-        <TouchableOpacity style={styles.loginBtn}>
+        <TouchableOpacity style={styles.loginBtn} onPress={() => router.push('/login')}>
           <Ionicons name="log-in-outline" size={18} color={palette.green} />
           <Text style={styles.loginBtnText}>{s.login_button}</Text>
         </TouchableOpacity>
@@ -36,13 +53,22 @@ export default function LibraryScreen() {
 
       <View style={styles.menuWrap}>
         {menuItems.map((item) => (
-          <TouchableOpacity key={item.label} style={styles.row} activeOpacity={0.7}>
+          <TouchableOpacity
+            key={item.label}
+            style={styles.row}
+            activeOpacity={0.7}
+            onPress={item.label === 'Playlists' ? handlePlaylistsPress : undefined}
+          >
             <View style={[styles.iconBox, { backgroundColor: `${item.color}12` }]}>
               <Ionicons name={item.icon} size={22} color={item.color} />
             </View>
             <View style={styles.rowInfo}>
               <Text style={styles.rowLabel}>{item.label}</Text>
-              <Text style={styles.rowSub}>{item.subtitle}</Text>
+              <Text style={styles.rowSub}>
+                {item.label === 'Playlists'
+                  ? (playlists.length > 0 ? `${playlists.length} playlist(s)` : item.subtitle)
+                  : item.subtitle}
+              </Text>
             </View>
             <View style={[styles.chevronCircle, { borderColor: palette.greyLight }]}>
               <Ionicons name="chevron-forward" size={16} color={palette.grey} />

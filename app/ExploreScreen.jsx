@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
 import Header from '../src/components/Header';
 import MediaCard from '../src/components/MediaCard';
+import { SkeletonGrid, SkeletonCarousel } from '../src/components/SkeletonLoader';
 import { useSettings } from '../src/contexts/SettingsContext';
 import { usePopular } from '../src/hooks/useMedias';
 import { radius, spacing, typography } from '../src/utils/theme';
@@ -16,7 +17,7 @@ export default function ExploreScreen() {
   const { data: popular, loading, error: popError } = usePopular();
 
   const handlePress = (item) => {
-    router.push({ pathname: '/PlayerScreen', params: { id: item.id_media } });
+    router.push({ pathname: '/PlayerScreen', params: { slug: item.slug || item.id_media } });
   };
 
   return (
@@ -24,8 +25,9 @@ export default function ExploreScreen() {
       <Header title={p.trending} />
 
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={palette.green} />
+        <View style={{ paddingTop: spacing.lg, gap: spacing.lg }}>
+          <SkeletonCarousel />
+          <SkeletonGrid />
         </View>
       ) : popError ? (
         <View style={styles.center}>
@@ -38,7 +40,7 @@ export default function ExploreScreen() {
       ) : (
         <FlatList
           data={popular}
-          keyExtractor={(item) => String(item.id_media)}
+          keyExtractor={(item, index) => (item.slug ? String(item.slug) : `idx-${index}`)}
           renderItem={({ item, index }) => (
             <View>
               {index === 0 && (

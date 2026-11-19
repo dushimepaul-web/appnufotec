@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSettings } from '../contexts/SettingsContext';
 import { useMemo } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
+import { useNotifications } from '../contexts/NotificationContext';
 import { spacing, typography } from '../utils/theme';
 
 export default function Header({ title, showBack = false }) {
@@ -12,8 +13,7 @@ export default function Header({ title, showBack = false }) {
   const s = useSettings();
   const { palette } = useTheme();
   const styles = useMemo(() => s2(palette), [palette]);
-
-  const displayTitle = title || `${s.app_name} ${s.app_subtitle}`;
+  const { unreadCount } = useNotifications();
 
   return (
     <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
@@ -41,12 +41,17 @@ export default function Header({ title, showBack = false }) {
         <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/SearchScreen')}>
           <Ionicons name="search-outline" size={20} color={palette.greyDark} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.iconBtn}>
+        <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/NotificationsScreen')}>
           <Ionicons name="notifications-outline" size={20} color={palette.greyDark} />
+          {unreadCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+            </View>
+          )}
         </TouchableOpacity>
-        <View style={styles.avatar}>
+        <TouchableOpacity style={styles.avatar} onPress={() => router.push('/profile')}>
           <Ionicons name="person" size={14} color={palette.white} />
-        </View>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -73,5 +78,16 @@ const s2 = (p) => StyleSheet.create({
     width: 32, height: 32, borderRadius: 16, backgroundColor: p.green,
     borderWidth: 1.5, borderColor: p.green,
     justifyContent: 'center', alignItems: 'center', marginLeft: 2,
+  },
+  badge: {
+    position: 'absolute', top: 2, right: 2,
+    minWidth: 18, height: 18, borderRadius: 9,
+    backgroundColor: '#FF3B30',
+    justifyContent: 'center', alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5, borderColor: p.white,
+  },
+  badgeText: {
+    color: '#fff', fontSize: 10, fontWeight: '900',
   },
 });

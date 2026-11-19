@@ -51,11 +51,11 @@ export default function SearchScreen() {
       ) : results.length > 0 ? (
         <FlatList
           data={results}
-          keyExtractor={(item) => String(item.id_media)}
+          keyExtractor={(item, index) => (item.slug ? String(item.slug) : `idx-${index}`)}
           renderItem={({ item }) => (
             <MediaCard
               item={item}
-              onPress={(i) => router.push({ pathname: '/PlayerScreen', params: { id: i.id_media } })}
+              onPress={(i) => router.push({ pathname: '/PlayerScreen', params: { slug: i.slug || i.id_media } })}
             />
           )}
           contentContainerStyle={styles.list}

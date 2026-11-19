@@ -1,14 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, FlatList, Image, Keyboard, StyleSheet, Text, TextInput, TouchableOpacity, View,
+  ActivityIndicator, FlatList, Image, Keyboard, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BottomNav from '../src/components/BottomNav';
 import { useSettings } from '../src/contexts/SettingsContext';
 import { useTheme } from '../src/contexts/ThemeContext';
 import api from '../src/utils/api';
+import { adaptProduct, adaptProductCategory } from '../src/utils/adapters';
 import { radius, spacing, typography } from '../src/utils/theme';
 
 export default function ProduitsScreen() {
@@ -25,45 +26,84 @@ export default function ProduitsScreen() {
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [isSearchMode, setIsSearchMode] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [featured, setFeatured] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const inputRef = useRef(null);
   const searchTimer = useRef(null);
 
-  useEffect(() => { if (!isSearchMode) loadProducts(); }, [page, isSearchMode]);
+  useEffect(() => {
+    api.getProductCategories()
+      .then(res => { if (res.success) setCategories((res.data || []).map(adaptProductCategory)); })
+      .catch(() => {});
+    api.getFeaturedProducts(6)
+      .then(res => { if (res.success) setFeatured((res.data?.items || []).map((item) => adaptProduct(item))); })
+      .catch(() => {});
+  }, []);
 
-  const loadProducts = async () => {
+  const handleCategorySelect = (catSlug) => {
+    if (catSlug === selectedCategory) return;
+    setSelectedCategory(catSlug);
+    setPage(1);
+    setProducts([]);
+    setFetchError(null);
+    setLoading(true);
+  };
+
+  const loadProducts = useCallback(async () => {
     try {
-      setLoading(true);
-      const response = await api.getProducts({ page, limit: 10 });
+      const response = await api.getProducts({
+        page, perPage: 10,
+        categorie: selectedCategory === 'all' ? undefined : selectedCategory,
+      });
       if (response.success) {
-        setProducts(prev => page === 1 ? response.data : [...prev, ...response.data]);
-        setTotalPages(response.pagination.total_pages);
+        const items = (response.data?.items || []).map((item) => adaptProduct(item));
+        setProducts(prev => page === 1 ? items : [...prev, ...items]);
+        setTotalPages(response.data?.meta?.pages ?? 1);
       }
     } catch (error) { setFetchError(error.message); console.error('Erreur chargement produits:', error);
     } finally { setLoading(false); }
-  };
+  }, [page, selectedCategory]);
+
+  useEffect(() => {
+    Promise.resolve().then(() => { if (!isSearchMode) loadProducts(); });
+  }, [isSearchMode, loadProducts]);
 
   const handleSearch = (text) => {
     setSearchQuery(text);
     clearTimeout(searchTimer.current);
-    if (text.length < 2) { setSearchResults([]); setIsSearchMode(false); return; }
+    if (text.length < 2) {
+      if (isSearchMode) { setPage(1); setProducts([]); setLoading(true); }
+      setSearchResults([]);
+      setIsSearchMode(false);
+      return;
+    }
     setIsSearchMode(true);
     setSearching(true);
     searchTimer.current = setTimeout(async () => {
       try {
-        const response = await api.getProducts({ search: text, limit: 30 });
-        if (response.success) setSearchResults(response.data);
+        const response = await api.getProducts({ q: text, perPage: 30 });
+        if (response.success) setSearchResults((response.data?.items || []).map((item) => adaptProduct(item)));
       } catch (e) { console.error('Erreur recherche:', e);
       } finally { setSearching(false); }
     }, 350);
   };
 
-  const clearSearch = () => { setSearchQuery(''); setSearchResults([]); setIsSearchMode(false); Keyboard.dismiss(); };
-
-  const handleProductPress = (product) => {
-    router.push({ pathname: '/product-detail', params: { id: product.id, slug: product.slug } });
+  const clearSearch = () => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setIsSearchMode(false);
+    setPage(1);
+    setProducts([]);
+    setLoading(true);
+    Keyboard.dismiss();
   };
 
-  const loadMore = () => { if (!loading && page < totalPages) setPage(prev => prev + 1); };
+  const handleProductPress = (product) => {
+    router.push({ pathname: '/product-detail', params: { slug: product.slug || product.id } });
+  };
+
+  const loadMore = () => { if (!loading && page < totalPages) { setLoading(true); setPage(prev => prev + 1); } };
 
   const renderProduct = ({ item }) => (
     <TouchableOpacity style={styles.productCard} onPress={() => handleProductPress(item)} activeOpacity={0.85}>
@@ -78,7 +118,7 @@ export default function ProduitsScreen() {
       </View>
       <View style={styles.productInfo}>
         <Text style={styles.productTitle} numberOfLines={2}>{item.title}</Text>
-        <Text style={styles.productPrice}>{item.price} BIF</Text>
+        <Text style={styles.productPrice}>{item.price}</Text>
         <TouchableOpacity style={styles.detailBtn} onPress={() => handleProductPress(item)}>
           <Text style={styles.detailBtnText}>{s.detail_button}</Text>
           <Ionicons name="arrow-forward" size={14} color={palette.green} />
@@ -88,6 +128,52 @@ export default function ProduitsScreen() {
   );
 
   const displayData = isSearchMode ? searchResults : products;
+
+  const ListHeader = () => (
+    <View>
+      {featured.length > 0 && !isSearchMode && (
+        <View style={styles.featuredSection}>
+          <Text style={styles.featuredTitle}>En vedette</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.featuredRow}>
+            {featured.map((item) => (
+              <TouchableOpacity key={String(item.slug || item.id)} style={styles.featuredCard} onPress={() => handleProductPress(item)} activeOpacity={0.85}>
+                <Image source={{ uri: item.image }} style={styles.featuredImage} />
+                <View style={styles.featuredOverlay} />
+                <View style={styles.featuredInfo}>
+                  <Text style={styles.featuredCardTitle} numberOfLines={2}>{item.title}</Text>
+                  <Text style={styles.featuredCardPrice}>{item.price}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+      {categories.length > 0 && !isSearchMode && (
+        <View style={styles.catRow}>
+          <TouchableOpacity
+            style={[styles.catChip, selectedCategory === 'all' && styles.catChipActive]}
+            onPress={() => handleCategorySelect('all')}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.catChipText, selectedCategory === 'all' && styles.catChipTextActive]}>Tout</Text>
+          </TouchableOpacity>
+          {categories.map((cat) => (
+            <TouchableOpacity
+              key={String(cat.slug || cat.id)}
+              style={[styles.catChip, selectedCategory === cat.slug && styles.catChipActive]}
+              onPress={() => handleCategorySelect(cat.slug)}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.catChipText, selectedCategory === cat.slug && styles.catChipTextActive]}>{cat.name}</Text>
+              {cat.product_count ? (
+                <Text style={[styles.catChipCount, selectedCategory === cat.slug && styles.catChipCountActive]}>{cat.product_count}</Text>
+              ) : null}
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
 
   if (loading && page === 1 && !isSearchMode) {
     return (
@@ -136,9 +222,10 @@ export default function ProduitsScreen() {
             </View>
           ) : (
             <FlatList
-              data={displayData} keyExtractor={(item) => item.id.toString()} renderItem={renderProduct}
+              data={displayData} keyExtractor={(item, index) => (item.id != null ? String(item.id) : `idx-${index}`)} renderItem={renderProduct}
               onEndReached={!isSearchMode ? loadMore : undefined} onEndReachedThreshold={0.5}
               keyboardShouldPersistTaps="handled"
+              ListHeaderComponent={ListHeader}
               ListFooterComponent={loading && page > 1 && !isSearchMode
                 ? <ActivityIndicator style={styles.footerLoader} color={palette.green} />
                 : <View style={{ height: 80 }} />}
@@ -172,6 +259,27 @@ const cs = (p) => StyleSheet.create({
   searchInput: { flex: 1, color: p.dark, fontSize: typography.sm, paddingVertical: 0 },
   clearBtn: { padding: 2 },
   whiteArea: { flex: 1, backgroundColor: p.white },
+  featuredSection: { marginBottom: spacing.sm },
+  featuredTitle: { fontSize: typography.base, fontWeight: '700', color: p.dark, paddingHorizontal: spacing.md, marginBottom: spacing.sm },
+  featuredRow: { paddingHorizontal: spacing.md, gap: spacing.sm },
+  featuredCard: { width: 220, borderRadius: radius.lg, overflow: 'hidden', backgroundColor: p.white, borderWidth: 1, borderColor: p.greyLight },
+  featuredImage: { width: '100%', height: 110, resizeMode: 'cover' },
+  featuredOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 70, backgroundColor: 'rgba(0,0,0,0.35)' },
+  featuredInfo: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: spacing.sm },
+  featuredCardTitle: { color: '#fff', fontSize: typography.sm, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+  featuredCardPrice: { color: '#fff', fontSize: typography.sm, fontWeight: '800', marginTop: 2 },
+  catRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  catChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: p.whiteOff, borderRadius: radius.full,
+    paddingHorizontal: spacing.md, paddingVertical: 6,
+    borderWidth: 1, borderColor: p.greyLight,
+  },
+  catChipActive: { backgroundColor: p.green, borderColor: p.green },
+  catChipText: { color: p.greyDark, fontSize: typography.sm, fontWeight: '600' },
+  catChipTextActive: { color: p.white, fontWeight: '700' },
+  catChipCount: { color: p.grey, fontSize: typography.xs, fontWeight: '600' },
+  catChipCountActive: { color: 'rgba(255,255,255,0.8)' },
   centerWhite: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: spacing.md, backgroundColor: p.white },
   listContent: { padding: spacing.md, paddingBottom: 80 },
   productCard: {
@@ -192,4 +300,3 @@ const cs = (p) => StyleSheet.create({
   emptyIconBox: { width: 64, height: 64, borderRadius: 32, backgroundColor: p.whiteOff, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: p.greyLight },
   emptyText: { color: p.grey, fontSize: 15, textAlign: 'center' },
 });
-

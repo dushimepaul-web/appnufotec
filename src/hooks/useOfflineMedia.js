@@ -9,6 +9,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { resolveUrl } from '../utils/api';
+import { extractYoutubeId } from '../utils/youtube';
 
 const OFFLINE_DIR = Platform.OS !== 'web'
   ? FileSystem.documentDirectory + 'offline_media/'
@@ -54,15 +55,19 @@ const writeMeta = async (data) => {
 // ─── Hook principal ────────────────────────────────────────────
 export function useOfflineMedia() {
   const [offlineMap, setOfflineMap] = useState({});
-  const [initialized, setInitialized] = useState(false);
+  const [initialized, setInitialized] = useState(Platform.OS === 'web');
   const [downloads, setDownloads] = useState({});
   const resumableRefs = useRef({});
+  const offlineMapRef = useRef(offlineMap);
+
+  useEffect(() => {
+    offlineMapRef.current = offlineMap;
+  }, [offlineMap]);
 
   // ── Init ────────────────────────────────────────────────────
   useEffect(() => {
     // Web : pas de FileSystem, on initialise immédiatement avec état vide
     if (Platform.OS === 'web') {
-      setInitialized(true);
       return;
     }
 
@@ -75,6 +80,7 @@ export function useOfflineMedia() {
         const meta = await readMeta();
         const verified = {};
         for (const [id, item] of Object.entries(meta)) {
+          if (!item?.localUri) continue;
           const info = await FileSystem.getInfoAsync(item.localUri);
           if (info.exists) {
             verified[id] = { ...item, size: info.size };
@@ -110,18 +116,21 @@ export function useOfflineMedia() {
       throw new Error("Le téléchargement hors-ligne n'est pas disponible sur Web.");
     }
 
-    const id = String(media.id_media);
-    if (offlineMap[id]) return { success: true, alreadyExists: true };
-    if (media.youtube_id) throw new Error('Les vidéos YouTube ne peuvent pas être téléchargées hors-ligne.');
-    if (!media.file_url) throw new Error('Ce média ne possède pas de fichier téléchargeable.');
+    const id = String(media.slug || media.id_media);
+    if (offlineMapRef.current[id]) return { success: true, alreadyExists: true };
+    if (media.youtube_id || extractYoutubeId(media.file_url) || extractYoutubeId(media.lien)) {
+      throw new Error('Les vidéos YouTube ne peuvent pas être téléchargées hors-ligne.');
+    }
+    const source = media.download_url || media.file_url;
+    if (!source) throw new Error('Ce média ne possède pas de fichier téléchargeable.');
 
-    const ext = getExtension(media.file_url);
+    const ext = media.format || getExtension(source);
     const localUri = OFFLINE_DIR + `media_${id}.${ext}`;
 
     setDownloads((prev) => ({ ...prev, [id]: { progress: 0 } }));
 
     try {
-      const downloadUrl = resolveUrl(media.file_url);
+      const downloadUrl = resolveUrl(source);
       const resumable = FileSystem.createDownloadResumable(
         downloadUrl,
         localUri,
@@ -142,7 +151,8 @@ export function useOfflineMedia() {
       const info = await FileSystem.getInfoAsync(result.uri);
 
       const entry = {
-        id_media: media.id_media,
+        id_media: id,
+        slug: media.slug || id,
         localUri: result.uri,
         titre: media.titre,
         type: media.type,
@@ -151,13 +161,15 @@ export function useOfflineMedia() {
         description: media.description ?? null,
         categorie: media.categorie ?? null,
         youtube_id: null,
-        file_url: media.file_url,
+        file_url: source,
+        format: media.format ?? null,
         size: info.size ?? 0,
         downloadedAt: Date.now(),
       };
 
-      const newMap = { ...offlineMap, [id]: entry };
+      const newMap = { ...offlineMapRef.current, [id]: entry };
       setOfflineMap(newMap);
+      offlineMapRef.current = newMap;
       await writeMeta(newMap);
 
       return { success: true, localUri: result.uri };
@@ -175,7 +187,7 @@ export function useOfflineMedia() {
         return next;
       });
     }
-  }, [offlineMap]);
+  }, []);
 
   // ── cancelDownload ──────────────────────────────────────────
   const cancelDownload = useCallback(async (mediaId) => {
@@ -197,18 +209,19 @@ export function useOfflineMedia() {
   const removeOfflineMedia = useCallback(async (mediaId) => {
     if (Platform.OS === 'web') return;
     const id = String(mediaId);
-    const entry = offlineMap[id];
+    const entry = offlineMapRef.current[id];
     if (!entry) return;
     try {
       await FileSystem.deleteAsync(entry.localUri, { idempotent: true });
     } catch (e) {
       console.warn('removeOfflineMedia delete:', e);
     }
-    const newMap = { ...offlineMap };
+    const newMap = { ...offlineMapRef.current };
     delete newMap[id];
     setOfflineMap(newMap);
+    offlineMapRef.current = newMap;
     await writeMeta(newMap);
-  }, [offlineMap]);
+  }, []);
 
   // ── clearAllOffline ─────────────────────────────────────────
   const clearAllOffline = useCallback(async () => {
@@ -221,6 +234,7 @@ export function useOfflineMedia() {
       console.warn('clearAllOffline:', e);
     }
     setOfflineMap({});
+    offlineMapRef.current = {};
   }, []);
 
   // ── helpers ─────────────────────────────────────────────────
