@@ -19,12 +19,12 @@ import { BRAND, mix, radius, spacing, typography } from '../src/utils/theme';
 const { width: SCREEN_W } = Dimensions.get('window');
 const LOGO = require('../assets/logo.png');
 
-type Service = { key: string; title: string; sub: string; icon: string; route: string; tone: 'green' | 'gold' | 'light' | 'outline' };
+type Service = { key: string; title: string; desc: string; icon: string; route: string };
 const SERVICES: Service[] = [
-  { key: 'medias', title: 'Médias', sub: 'émissions santé', icon: 'play-circle', route: '/medias', tone: 'green' },
-  { key: 'produits', title: 'Boutique', sub: 'produits naturels', icon: 'leaf', route: '/produits', tone: 'gold' },
-  { key: 'consultation', title: 'Consultation', sub: "Avis d'un expert", icon: 'medkit', route: '/consultation', tone: 'light' },
-  { key: 'temoignages', title: 'Témoignages', sub: 'histoires vraies', icon: 'chatbubbles', route: '/temoignages', tone: 'outline' },
+  { key: 'medias', title: 'Médias santé', desc: 'Vidéos, audios et documents', icon: 'play-circle-outline', route: '/medias' },
+  { key: 'consultation', title: 'Consultation', desc: 'Parlez à un expert en santé naturelle', icon: 'medkit-outline', route: '/consultation' },
+  { key: 'produits', title: 'Boutique', desc: 'Produits naturels livrés chez vous', icon: 'leaf-outline', route: '/produits' },
+  { key: 'temoignages', title: 'Témoignages', desc: 'Ils ont retrouvé la santé', icon: 'chatbubbles-outline', route: '/temoignages' },
 ];
 
 const SLIDE_W = SCREEN_W - spacing.lg * 2;
@@ -169,24 +169,32 @@ export default function HomeScreen() {
           </View>
         ) : null}
 
-        {/* ─── Services ────────────────────────────────────── */}
-        <View style={styles.services}>
-          {SERVICES.map((sv) => {
-            const count = counts[sv.key];
-            const dark = sv.tone === 'green';
-            return (
-              <TouchableOpacity key={sv.key} style={[styles.service, styles[`tone_${sv.tone}` as keyof typeof styles] as any]} onPress={() => router.push(sv.route as any)} activeOpacity={0.88}>
-                <View style={[styles.serviceIcon, dark && styles.serviceIconDark]}>
-                  <Ionicons name={sv.icon as any} size={20} color={dark ? BRAND.ink : palette.green} />
-                </View>
-                <Text style={[styles.serviceTitle, dark && { color: '#FFFFFF' }]}>{sv.title}</Text>
-                <Text style={[styles.serviceSub, dark && { color: 'rgba(255,255,255,0.75)' }]} numberOfLines={1}>
-                  {count ? `${formatNumber(count)} ${sv.sub}` : sv.sub.charAt(0).toUpperCase() + sv.sub.slice(1)}
-                </Text>
-                <Ionicons name="arrow-forward" size={16} color={dark ? palette.gold : palette.green} style={styles.serviceArrow} />
-              </TouchableOpacity>
-            );
-          })}
+        {/* ─── Services (liste) ─────────────────────────── */}
+        <View style={styles.section}>
+          <SectionHeader title="Nos services" styles={styles} />
+          <View style={styles.services}>
+            {SERVICES.map((sv, i) => {
+              const count = counts[sv.key];
+              return (
+                <TouchableOpacity
+                  key={sv.key} style={[styles.serviceRow, i > 0 && styles.serviceRowBorder]}
+                  onPress={() => router.push(sv.route as any)} activeOpacity={0.7}
+                >
+                  <View style={styles.serviceIcon}>
+                    <Ionicons name={sv.icon as any} size={21} color={palette.green} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.serviceTitle}>{sv.title}</Text>
+                    <Text style={styles.serviceSub} numberOfLines={1}>{sv.desc}</Text>
+                  </View>
+                  {count ? (
+                    <View style={styles.serviceCount}><Text style={styles.serviceCountText}>{formatNumber(count)}</Text></View>
+                  ) : null}
+                  <Ionicons name="chevron-forward" size={18} color={palette.grey} />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
 
         {/* ─── Derniers médias ─────────────────────────────── */}
@@ -303,17 +311,17 @@ const cs = (p: any) => StyleSheet.create({
   dotItem: { width: 6, height: 6, borderRadius: 3, backgroundColor: p.greyLight },
   dotActive: { width: 18, backgroundColor: p.green },
 
-  services: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, paddingHorizontal: spacing.lg, marginTop: spacing.lg },
-  service: { width: (SCREEN_W - spacing.lg * 2 - spacing.md) / 2, minHeight: 118, borderRadius: radius.lg, padding: spacing.md },
-  tone_green: { backgroundColor: p.green },
-  tone_gold: { backgroundColor: mix(BRAND.gold, '#FFFFFF', 0.82) },
-  tone_light: { backgroundColor: p.greenSoft },
-  tone_outline: { backgroundColor: p.white, borderWidth: 1, borderColor: p.greyLight },
-  serviceIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: p.white, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.md },
-  serviceIconDark: { backgroundColor: p.gold },
-  serviceTitle: { color: p.dark, fontSize: typography.md + 1, fontWeight: '900' },
+  services: {
+    marginHorizontal: spacing.lg, backgroundColor: p.white, borderRadius: radius.lg, paddingHorizontal: spacing.md,
+    borderWidth: 1, borderColor: p.greyLight,
+  },
+  serviceRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: 14 },
+  serviceRowBorder: { borderTopWidth: 1, borderTopColor: p.greyLight },
+  serviceIcon: { width: 42, height: 42, borderRadius: 21, backgroundColor: p.greenSoft, justifyContent: 'center', alignItems: 'center' },
+  serviceTitle: { color: p.dark, fontSize: typography.md, fontWeight: '800' },
   serviceSub: { color: p.greyDark, fontSize: typography.sm, marginTop: 2 },
-  serviceArrow: { position: 'absolute', top: spacing.md + 10, right: spacing.md },
+  serviceCount: { minWidth: 30, paddingHorizontal: 8, height: 24, borderRadius: 12, backgroundColor: mix(BRAND.gold, '#FFFFFF', 0.8), justifyContent: 'center', alignItems: 'center' },
+  serviceCountText: { color: p.goldDark, fontSize: typography.xs + 1, fontWeight: '900' },
 
   section: { marginTop: spacing.xl },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: spacing.lg, marginBottom: spacing.md },
