@@ -1,67 +1,100 @@
-export const palette = {
-  green: '#0C7B45',
-  greenLight: '#14A85A',
-  greenDark: '#096035',
-  gold: '#D4A843',
-  goldLight: '#E8C84A',
-  goldDark: '#B8942E',
-  red: '#D92D4A',
-  redLight: '#F04A66',
-  redDark: '#B81E38',
+// ─── Charte graphique NUFOTEC : 5 couleurs, toutes tirées du logo ─────
+//   vert   : l'anneau « Nutrition and Food Technology for Health »
+//   or     : les lauriers
+//   rouge  : le ruban « NUFOTEC » (réservé aux alertes et aux badges)
+//   encre  : vert presque noir, pour le texte et les fonds sombres
+//   blanc  : surfaces
+// Toutes les autres nuances sont des mélanges de ces 5 couleurs.
+export const BRAND = {
+  green: '#1A7F3C',
+  gold: '#CFA93A',
+  red: '#B5121B',
+  ink: '#0F2417',
   white: '#FFFFFF',
-  whiteOff: '#F4F5F7',
-  grey: '#B0B8C1',
-  greyDark: '#7A828E',
-  greyLight: '#E2E5EA',
-  dark: '#1A1D21',
-  darkLight: '#2D3238',
-  darkCard: '#24282E',
-  darkElevated: '#333940',
+};
+
+// Mélange linéaire de deux couleurs hexadécimales (ratio = part de `b`).
+export function mix(a, b, ratio) {
+  const pa = a.replace('#', ''), pb = b.replace('#', '');
+  const ch = (h, i) => parseInt(h.slice(i, i + 2), 16);
+  const out = [0, 2, 4].map((i) => Math.round(ch(pa, i) * (1 - ratio) + ch(pb, i) * ratio));
+  return `#${out.map((v) => v.toString(16).padStart(2, '0')).join('').toUpperCase()}`;
+}
+
+const { green, gold, red, ink, white } = BRAND;
+
+export const palette = {
+  green,
+  greenLight: mix(green, white, 0.18),
+  greenDark: mix(green, ink, 0.55),
+  greenSoft: mix(green, white, 0.91),
+  gold,
+  goldLight: mix(gold, white, 0.4),
+  goldDark: mix(gold, ink, 0.3),
+  red,
+  redLight: mix(red, white, 0.2),
+  redDark: mix(red, ink, 0.3),
+  redSoft: mix(red, white, 0.92),
+  white,
+  whiteOff: mix(green, white, 0.965),
+  grey: mix(ink, white, 0.55),
+  greyDark: mix(ink, white, 0.35),
+  greyLight: mix(ink, white, 0.9),
+  dark: ink,
+  darkLight: mix(ink, white, 0.18),
+  darkCard: mix(ink, white, 0.08),
+  darkElevated: mix(ink, white, 0.14),
+  media: ink, // fond des lecteurs vidéo/audio
+  whatsapp: green, // les boutons WhatsApp restent dans la charte
 };
 
 export const darkPalette = {
-  green: '#14A85A',
-  greenLight: '#1CC96A',
-  greenDark: '#0C7B45',
-  gold: '#D4A843',
-  goldLight: '#E8C84A',
-  goldDark: '#B8942E',
-  red: '#D92D4A',
-  redLight: '#F04A66',
-  redDark: '#B81E38',
-  white: '#121418',
-  whiteOff: '#1C1E24',
-  grey: '#5A6068',
-  greyDark: '#8A9098',
-  greyLight: '#2A2D35',
-  dark: '#F0F2F5',
-  darkLight: '#C8CCD0',
-  darkCard: '#24282E',
-  darkElevated: '#333940',
+  green: mix(green, white, 0.22),
+  greenLight: mix(green, white, 0.35),
+  greenDark: green,
+  greenSoft: mix(ink, green, 0.25),
+  gold,
+  goldLight: mix(gold, white, 0.4),
+  goldDark: mix(gold, ink, 0.2),
+  red: mix(red, white, 0.15),
+  redLight: mix(red, white, 0.3),
+  redDark: red,
+  redSoft: mix(ink, red, 0.2),
+  white: mix(ink, '#000000', 0.35),
+  whiteOff: ink,
+  grey: mix(ink, white, 0.42),
+  greyDark: mix(ink, white, 0.62),
+  greyLight: mix(ink, white, 0.16),
+  dark: mix(white, green, 0.04),
+  darkLight: mix(white, ink, 0.2),
+  darkCard: ink,
+  darkElevated: mix(ink, white, 0.1),
+  media: mix(ink, '#000000', 0.35),
+  whatsapp: mix(green, white, 0.22),
 };
 
 export const colors = {
   bg: palette.white,
   bgCard: palette.whiteOff,
   bgElevated: palette.greyLight,
-  bgOverlay: 'rgba(0,0,0,0.05)',
+  bgOverlay: 'rgba(15,36,23,0.05)',
 
   accent: palette.green,
   accentSoft: palette.greenLight,
-  accentGlow: 'rgba(12,123,69,0.1)',
+  accentGlow: 'rgba(26,127,60,0.1)',
 
   gold: palette.gold,
-  goldSoft: 'rgba(212,168,67,0.1)',
+  goldSoft: 'rgba(207,169,58,0.1)',
 
   red: palette.red,
-  redSoft: 'rgba(217,45,74,0.08)',
+  redSoft: palette.redSoft,
 
   text: palette.dark,
-  textSub: '#5A6068',
+  textSub: palette.greyDark,
   textMuted: palette.grey,
 
   border: palette.greyLight,
-  borderLight: '#EEF0F2',
+  borderLight: palette.greyLight,
 
   chip: palette.greyLight,
   chipActive: palette.green,

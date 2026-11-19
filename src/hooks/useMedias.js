@@ -2,12 +2,18 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../utils/api';
 import { adaptMedia } from '../utils/adapters';
 
-function categorieFor(type, category) {
-  if (category) return category;
-  if (type === 'pdf') return 'fichier';
-  if (type && type !== 'all') return type;
-  return undefined;
+// Catégories API pour un onglet. L'onglet « Vidéos » couvre aussi les liens
+// (catégorie "link"), qui contiennent les vidéos YouTube : l'API n'accepte
+// qu'une catégorie par requête, on interroge donc chacune puis on fusionne.
+function categoriesFor(type, category) {
+  if (category) return [category];
+  if (type === 'pdf') return ['fichier'];
+  if (type === 'video') return ['video', 'link'];
+  if (type && type !== 'all') return [type];
+  return [undefined];
 }
+
+const byDateDesc = (a, b) => String(b.created_at || b.date || '').localeCompare(String(a.created_at || a.date || ''));
 
 export function useMedias({ type = 'all', limit = 20, category, q } = {}) {
   const [data, setData] = useState([]);
@@ -33,18 +39,20 @@ export function useMedias({ type = 'all', limit = 20, category, q } = {}) {
       } else {
         setLoadingMore(true);
       }
-      const res = await api.getMedias({
-        page,
-        perPage: limit,
-        categorie: categorieFor(type, category),
-        q,
-      });
+      const cats = categoriesFor(type, category);
+      const responses = await Promise.all(cats.map((categorie) => (
+        api.getMedias({ page, perPage: limit, categorie, q })
+      )));
       if (id !== requestId.current) return;
-      if (res?.success) {
-        const items = (res.data?.items || []).map((item) => adaptMedia(item));
+      const ok = responses.filter((res) => res?.success);
+      if (ok.length > 0) {
+        let items = ok.flatMap((res) => (res.data?.items || []).map((item) => adaptMedia(item)));
+        if (cats.length > 1) items = items.sort(byDateDesc);
         setData((prev) => (reset ? items : [...prev, ...items]));
-        const meta = res.data?.meta;
-        setHasMore(meta ? meta.page < meta.pages : false);
+        setHasMore(ok.some((res) => {
+          const meta = res.data?.meta;
+          return meta ? meta.page < meta.pages : false;
+        }));
         pageRef.current = page;
       }
     } catch (e) {
@@ -139,15 +147,20 @@ export function useSearch() {
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
 
+  const lastRequest = useRef(0);
+
   const search = useCallback(async (q) => {
     setQuery(q);
-    if (!q || q.length < 2) { setResults([]); return; }
+    const id = ++lastRequest.current;
+    if (!q || q.length < 2) { setResults([]); setLoading(false); return; }
     setLoading(true);
     try {
       const res = await api.searchMedia(q);
+      // Ignore les réponses d'une frappe précédente arrivées en retard.
+      if (id !== lastRequest.current) return;
       if (res?.success) setResults((res.data?.items || []).map((item) => adaptMedia(item)));
     } catch {}
-    finally { setLoading(false); }
+    finally { if (id === lastRequest.current) setLoading(false); }
   }, []);
 
   return { results, loading, query, search };

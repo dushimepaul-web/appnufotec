@@ -39,7 +39,7 @@ const DEFAULTS = {
     international_price: '50 USD / 50 EUR',
     local_label: 'Burundi',
     local_price: '40 000 FBu',
-    whatsapp_number: '79666439',
+    whatsapp_number: '25779666439',
     submit_text: 'Envoyer via WhatsApp',
   },
   player: {
@@ -97,7 +97,7 @@ const DEFAULTS = {
     delete_title: 'Supprimer le téléchargement',
   },
   contact: {
-    whatsapp: '79666439',
+    whatsapp: '25779666439',
     phone: '(+257) 79 666 439',
     email: 'nufotecburundi2026@gmail.com',
   },

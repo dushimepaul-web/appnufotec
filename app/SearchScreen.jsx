@@ -54,6 +54,7 @@ export default function SearchScreen() {
           keyExtractor={(item, index) => (item.slug ? String(item.slug) : `idx-${index}`)}
           renderItem={({ item }) => (
             <MediaCard
+              variant="compact"
               item={item}
               onPress={(i) => router.push({ pathname: '/PlayerScreen', params: { slug: i.slug || i.id_media } })}
             />

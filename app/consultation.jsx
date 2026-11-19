@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BottomNav from '../src/components/BottomNav';
 import { useSettings } from '../src/contexts/SettingsContext';
 import { useTheme } from '../src/contexts/ThemeContext';
+import { whatsappUrl } from '../src/utils/api';
 import { radius, spacing, typography } from '../src/utils/theme';
 
 function Field({ icon, label, required: req, helper, children }) {
@@ -77,7 +78,7 @@ export default function ConsultationScreen() {
 
   const formatWhatsAppMessage = () => {
     const msg = `*CONSULTATION NUFOTEC BURUNDI*\n\n*Nom :* ${formData.fullName}\n*Âge :* ${formData.age} ans\n*Taille :* ${formData.height} cm\n*Poids :* ${formData.weight} kg\n*Résidence :* ${formData.residence}\n\n*Symptômes :*\n${formData.symptoms}\n\n*Examens :*\n${formData.exams || 'Aucun'}\n\n*Photos :* ${examImages.length} photo(s) à suivre.`;
-    return encodeURIComponent(msg);
+    return msg;
   };
 
   const handleSubmit = () => {
@@ -89,7 +90,7 @@ export default function ConsultationScreen() {
       if (!formData[field].trim()) { Alert.alert('Champ manquant', `Veuillez entrer votre ${label}.`); return; }
     }
     setLoading(true);
-    Linking.openURL(`https://wa.me/${contact.whatsapp}?text=${formatWhatsAppMessage()}`);
+    Linking.openURL(whatsappUrl(contact.whatsapp, formatWhatsAppMessage()));
     setLoading(false);
     Alert.alert(
       examImages.length > 0 ? 'Photos à envoyer' : 'Demande envoyée',
@@ -270,7 +271,7 @@ const cs = (p) => StyleSheet.create({
   tarifPillText: { color: p.white, fontSize: 10, fontWeight: '700' },
   tarifRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 4 },
   tarifDivider: { height: 1, backgroundColor: p.greyLight, marginVertical: 4 },
-  tarifText: { color: '#555', fontSize: typography.sm },
+  tarifText: { color: p.darkLight, fontSize: typography.sm },
   tarifBold: { fontWeight: '700', color: p.dark },
   form: { paddingHorizontal: spacing.base },
   formSectionTitle: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md, marginTop: spacing.md },
@@ -281,7 +282,7 @@ const cs = (p) => StyleSheet.create({
   fieldBlock: { marginBottom: spacing.md },
   fieldLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
   fieldIconWrap: { width: 22, height: 22, borderRadius: 6, justifyContent: 'center', alignItems: 'center' },
-  fieldLabel: { fontSize: typography.sm, fontWeight: '600', color: '#555' },
+  fieldLabel: { fontSize: typography.sm, fontWeight: '600', color: p.darkLight },
   required: { fontSize: typography.sm, color: p.gold, fontWeight: '700' },
   helper: { fontSize: typography.xs, color: p.grey, marginBottom: 6, marginLeft: 28 },
   input: { backgroundColor: p.whiteOff, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, fontSize: typography.sm, color: p.dark, borderWidth: 1.5, borderColor: p.greyLight },
@@ -297,7 +298,7 @@ const cs = (p) => StyleSheet.create({
   imgRemove: { position: 'absolute', top: -8, right: -8, backgroundColor: p.white, borderRadius: 12 },
   infoBox: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start', backgroundColor: `${p.gold}10`, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.lg, borderWidth: 1, borderColor: `${p.gold}30` },
   infoText: { flex: 1, fontSize: typography.xs, color: p.goldDark, lineHeight: 18 },
-  submitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, backgroundColor: '#25D366', borderRadius: radius.md, paddingVertical: spacing.md, marginBottom: spacing.sm, shadowColor: '#25D366', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
+  submitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, backgroundColor: p.green, borderRadius: radius.md, paddingVertical: spacing.md, marginBottom: spacing.sm, shadowColor: p.green, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
   submitText: { color: p.white, fontSize: typography.base, fontWeight: '700' },
   note: { fontSize: typography.xs, color: p.grey, textAlign: 'center', marginBottom: spacing.xl },
 });

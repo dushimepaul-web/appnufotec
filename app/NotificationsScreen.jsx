@@ -45,7 +45,7 @@ export default function NotificationsScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#fff' }}>
+    <View style={{ flex: 1, backgroundColor: palette.white }}>
       <View style={{ paddingTop: insets.top, backgroundColor: palette.green }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, height: 56 }}>
           <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, justifyContent: 'center', alignItems: 'center', marginRight: 4 }}>
@@ -80,7 +80,7 @@ export default function NotificationsScreen() {
                   activeOpacity={0.7}
                   style={{
                     flexDirection: 'row', gap: 14, paddingHorizontal: 20, paddingVertical: 14,
-                    backgroundColor: notif.read ? '#fff' : `${palette.green}04`,
+                    backgroundColor: notif.read ? palette.white : palette.greenSoft,
                     borderBottomWidth: 1, borderBottomColor: palette.greyLight,
                   }}
                 >

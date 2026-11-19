@@ -7,6 +7,7 @@ import { useMemo } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNotifications } from '../contexts/NotificationContext';
 import { spacing, typography } from '../utils/theme';
+import ThemeToggle from './ThemeToggle';
 
 export default function Header({ title, showBack = false }) {
   const insets = useSafeAreaInsets();
@@ -52,6 +53,7 @@ export default function Header({ title, showBack = false }) {
         <TouchableOpacity style={styles.avatar} onPress={() => router.push('/profile')}>
           <Ionicons name="person" size={14} color={palette.white} />
         </TouchableOpacity>
+        <ThemeToggle inline />
       </View>
     </View>
   );
@@ -82,7 +84,7 @@ const s2 = (p) => StyleSheet.create({
   badge: {
     position: 'absolute', top: 2, right: 2,
     minWidth: 18, height: 18, borderRadius: 9,
-    backgroundColor: '#FF3B30',
+    backgroundColor: p.red,
     justifyContent: 'center', alignItems: 'center',
     paddingHorizontal: 4,
     borderWidth: 1.5, borderColor: p.white,

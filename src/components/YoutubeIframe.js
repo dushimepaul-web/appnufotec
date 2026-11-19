@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { WebView } from 'react-native-webview';
+import { BRAND } from '../utils/theme';
 
 // Chargement direct de l'URL d'embed YouTube.
 // IMPORTANT : ne PAS utiliser source={{ html, baseUrl }} : YouTube refuse la
@@ -29,7 +30,7 @@ export default function YoutubeIframe({ videoId, height, width }) {
     <WebView
       key={videoId}
       source={{ uri: embedUrl }}
-      style={{ width, height, backgroundColor: '#000' }}
+      style={{ width, height, backgroundColor: BRAND.ink }}
       onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
       setSupportMultipleWindows={false}
       allowsInlineMediaPlayback

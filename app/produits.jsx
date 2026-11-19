@@ -2,301 +2,312 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, FlatList, Image, Keyboard, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
+  ActivityIndicator, Dimensions, FlatList, Image, Keyboard, Linking, RefreshControl, ScrollView, StyleSheet, Text,
+  TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BottomNav from '../src/components/BottomNav';
 import { useSettings } from '../src/contexts/SettingsContext';
 import { useTheme } from '../src/contexts/ThemeContext';
-import api from '../src/utils/api';
+import api, { whatsappUrl } from '../src/utils/api';
 import { adaptProduct, adaptProductCategory } from '../src/utils/adapters';
 import { radius, spacing, typography } from '../src/utils/theme';
+
+const { width: SCREEN_W } = Dimensions.get('window');
+const GAP = spacing.md;
+const CARD_W = Math.min((SCREEN_W - spacing.md * 2 - GAP) / 2, 260);
+const PER_PAGE = 12;
+
+function ProductCard({ item, styles, palette, onOpen, onOrder }) {
+  return (
+    <TouchableOpacity style={styles.card} onPress={() => onOpen(item)} activeOpacity={0.9}>
+      <View style={styles.cardImageWrap}>
+        {item.image ? (
+          <Image source={{ uri: item.image }} style={styles.cardImage} resizeMode="contain" />
+        ) : (
+          <Ionicons name="leaf-outline" size={40} color={palette.green} />
+        )}
+        <View style={styles.badges}>
+          {item.vedette ? <Text style={[styles.badge, styles.badgeGold]}>Vedette</Text> : null}
+          {item.is_new ? <Text style={[styles.badge, styles.badgeGreen]}>Nouveau</Text> : null}
+        </View>
+        {!item.in_stock ? <View style={styles.outOfStock}><Text style={styles.outOfStockText}>Rupture de stock</Text></View> : null}
+      </View>
+      <View style={styles.cardBody}>
+        {item.category_name ? <Text style={styles.cardCat} numberOfLines={1}>{item.category_name}</Text> : null}
+        <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
+        <Text style={[styles.cardPrice, !item.has_price && styles.cardPriceAsk]} numberOfLines={1}>{item.price}</Text>
+        <Text style={styles.cardPrice2} numberOfLines={1}>{item.price_secondary || ' '}</Text>
+        <TouchableOpacity style={styles.orderBtn} onPress={() => onOrder(item)} activeOpacity={0.85}>
+          <Ionicons name="logo-whatsapp" size={15} color="#fff" />
+          <Text style={styles.orderText}>Commander</Text>
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 export default function ProduitsScreen() {
   const { palette } = useTheme();
   const styles = useMemo(() => cs(palette), [palette]);
   const insets = useSafeAreaInsets();
-  const s = useSettings().products;
+  const settings = useSettings();
+
   const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState(null);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(0);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [searching, setSearching] = useState(false);
-  const [isSearchMode, setIsSearchMode] = useState(false);
-  const [categories, setCategories] = useState([]);
   const [featured, setFeatured] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const inputRef = useRef(null);
-  const searchTimer = useRef(null);
+  const [categories, setCategories] = useState([]);
+  const [category, setCategory] = useState('all');
+  const [query, setQuery] = useState('');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
+  const [total, setTotal] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+  const reqId = useRef(0);
+  const debounce = useRef(null);
 
   useEffect(() => {
     api.getProductCategories()
-      .then(res => { if (res.success) setCategories((res.data || []).map(adaptProductCategory)); })
+      .then((res) => { if (res?.success) setCategories((res.data || []).map(adaptProductCategory).filter((c) => c.product_count > 0)); })
       .catch(() => {});
-    api.getFeaturedProducts(6)
-      .then(res => { if (res.success) setFeatured((res.data?.items || []).map((item) => adaptProduct(item))); })
+    api.getFeaturedProducts(8)
+      .then((res) => { if (res?.success) setFeatured((res.data?.items || []).map((item) => adaptProduct(item))); })
       .catch(() => {});
   }, []);
 
-  const handleCategorySelect = (catSlug) => {
-    if (catSlug === selectedCategory) return;
-    setSelectedCategory(catSlug);
-    setPage(1);
-    setProducts([]);
-    setFetchError(null);
+  const load = useCallback(async (pageToLoad) => {
+    const id = ++reqId.current;
     setLoading(true);
-  };
-
-  const loadProducts = useCallback(async () => {
+    setError(null);
     try {
-      const response = await api.getProducts({
-        page, perPage: 10,
-        categorie: selectedCategory === 'all' ? undefined : selectedCategory,
+      const res = await api.getProducts({
+        page: pageToLoad, perPage: PER_PAGE, tri: 'recent',
+        categorie: category === 'all' ? undefined : category,
+        q: search || undefined,
       });
-      if (response.success) {
-        const items = (response.data?.items || []).map((item) => adaptProduct(item));
-        setProducts(prev => page === 1 ? items : [...prev, ...items]);
-        setTotalPages(response.data?.meta?.pages ?? 1);
+      if (id !== reqId.current) return;
+      if (res?.success) {
+        const items = (res.data?.items || []).map((item) => adaptProduct(item));
+        setProducts((prev) => (pageToLoad === 1 ? items : [...prev, ...items]));
+        setPages(res.data?.meta?.pages ?? 1);
+        setTotal(res.data?.meta?.total ?? items.length);
+        setPage(pageToLoad);
       }
-    } catch (error) { setFetchError(error.message); console.error('Erreur chargement produits:', error);
-    } finally { setLoading(false); }
-  }, [page, selectedCategory]);
-
-  useEffect(() => {
-    Promise.resolve().then(() => { if (!isSearchMode) loadProducts(); });
-  }, [isSearchMode, loadProducts]);
-
-  const handleSearch = (text) => {
-    setSearchQuery(text);
-    clearTimeout(searchTimer.current);
-    if (text.length < 2) {
-      if (isSearchMode) { setPage(1); setProducts([]); setLoading(true); }
-      setSearchResults([]);
-      setIsSearchMode(false);
-      return;
+    } catch (e) {
+      if (id === reqId.current) setError(e.message);
+    } finally {
+      if (id === reqId.current) { setLoading(false); setRefreshing(false); }
     }
-    setIsSearchMode(true);
-    setSearching(true);
-    searchTimer.current = setTimeout(async () => {
-      try {
-        const response = await api.getProducts({ q: text, perPage: 30 });
-        if (response.success) setSearchResults((response.data?.items || []).map((item) => adaptProduct(item)));
-      } catch (e) { console.error('Erreur recherche:', e);
-      } finally { setSearching(false); }
-    }, 350);
+  }, [category, search]);
+
+  useEffect(() => { Promise.resolve().then(() => load(1)); }, [load]);
+
+  const onChangeQuery = (text) => {
+    setQuery(text);
+    clearTimeout(debounce.current);
+    debounce.current = setTimeout(() => setSearch(text.trim().length >= 2 ? text.trim() : ''), 400);
   };
 
-  const clearSearch = () => {
-    setSearchQuery('');
-    setSearchResults([]);
-    setIsSearchMode(false);
-    setPage(1);
-    setProducts([]);
-    setLoading(true);
-    Keyboard.dismiss();
+  const clearQuery = () => { clearTimeout(debounce.current); setQuery(''); setSearch(''); Keyboard.dismiss(); };
+
+  const open = (item) => router.push({ pathname: '/product-detail', params: { slug: item.slug || item.id } });
+  const order = (item) => router.push({ pathname: '/product-detail', params: { slug: item.slug || item.id, commander: '1' } });
+
+  const askAdvice = () => {
+    const msg = `Bonjour ${settings.app_name} ${settings.app_subtitle}, j'aimerais un conseil pour choisir un produit.`;
+    Linking.openURL(whatsappUrl(settings.contact?.whatsapp, msg)).catch(() => {});
   };
 
-  const handleProductPress = (product) => {
-    router.push({ pathname: '/product-detail', params: { slug: product.slug || product.id } });
-  };
+  const loadMore = () => { if (!loading && page < pages) load(page + 1); };
+  const filtering = category !== 'all' || !!search;
 
-  const loadMore = () => { if (!loading && page < totalPages) { setLoading(true); setPage(prev => prev + 1); } };
-
-  const renderProduct = ({ item }) => (
-    <TouchableOpacity style={styles.productCard} onPress={() => handleProductPress(item)} activeOpacity={0.85}>
-      <View style={styles.imageWrap}>
-        <Image source={{ uri: item.image }} style={styles.productImage} />
-        {item.in_vedette === 1 && (
-          <View style={[styles.featuredBadge, { backgroundColor: palette.gold }]}>
-            <Ionicons name="star" size={11} color={palette.white} />
-            <Text style={styles.featuredText}>{s.featured_text}</Text>
-          </View>
-        )}
-      </View>
-      <View style={styles.productInfo}>
-        <Text style={styles.productTitle} numberOfLines={2}>{item.title}</Text>
-        <Text style={styles.productPrice}>{item.price}</Text>
-        <TouchableOpacity style={styles.detailBtn} onPress={() => handleProductPress(item)}>
-          <Text style={styles.detailBtnText}>{s.detail_button}</Text>
-          <Ionicons name="arrow-forward" size={14} color={palette.green} />
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  );
-
-  const displayData = isSearchMode ? searchResults : products;
-
-  const ListHeader = () => (
+  const header = (
     <View>
-      {featured.length > 0 && !isSearchMode && (
-        <View style={styles.featuredSection}>
-          <Text style={styles.featuredTitle}>En vedette</Text>
+      <View style={[styles.hero, { paddingTop: insets.top + spacing.md }]}>
+        <View style={styles.heroTop}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.heroKicker}>Boutique</Text>
+            <Text style={styles.heroTitle}>Notre catalogue</Text>
+          </View>
+          <TouchableOpacity style={styles.heroWa} onPress={askAdvice} activeOpacity={0.85}>
+            <Ionicons name="logo-whatsapp" size={22} color="#fff" />
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.heroSub}>Des produits naturels à base de plantes médicinales, commandés en ligne et confirmés sur WhatsApp.</Text>
+        <View style={styles.searchBar}>
+          <Ionicons name="search" size={18} color={palette.greyDark} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Rechercher un produit, une indication…"
+            placeholderTextColor={palette.grey}
+            value={query}
+            onChangeText={onChangeQuery}
+            returnKeyType="search"
+            onSubmitEditing={() => { clearTimeout(debounce.current); setSearch(query.trim()); Keyboard.dismiss(); }}
+          />
+          {query ? (
+            <TouchableOpacity onPress={clearQuery}><Ionicons name="close-circle" size={18} color={palette.grey} /></TouchableOpacity>
+          ) : null}
+        </View>
+      </View>
+
+      <View style={styles.trust}>
+        {[['leaf-outline', 'Naturel'], ['shield-checkmark-outline', 'Certifié'], ['logo-whatsapp', 'Via WhatsApp']].map(([icon, label]) => (
+          <View key={label} style={styles.trustItem}>
+            <Ionicons name={icon} size={15} color={palette.green} />
+            <Text style={styles.trustText}>{label}</Text>
+          </View>
+        ))}
+      </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+        {[{ slug: 'all', name: 'Tous', product_count: null }, ...categories].map((cat) => {
+          const active = category === cat.slug;
+          return (
+            <TouchableOpacity key={cat.slug} style={[styles.chip, active && styles.chipActive]} onPress={() => setCategory(cat.slug)} activeOpacity={0.8}>
+              {cat.slug === 'all' ? <Ionicons name="grid-outline" size={13} color={active ? '#fff' : palette.dark} /> : null}
+              <Text style={[styles.chipText, active && styles.chipTextActive]} numberOfLines={1}>{cat.name}</Text>
+              {cat.product_count ? <Text style={[styles.chipCount, active && styles.chipTextActive]}>{cat.product_count}</Text> : null}
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      {!filtering && featured.length > 0 ? (
+        <View style={styles.section}>
+          <View style={styles.sectionHead}>
+            <Ionicons name="star" size={16} color={palette.gold} />
+            <Text style={styles.sectionTitle}>En vedette</Text>
+          </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.featuredRow}>
             {featured.map((item) => (
-              <TouchableOpacity key={String(item.slug || item.id)} style={styles.featuredCard} onPress={() => handleProductPress(item)} activeOpacity={0.85}>
-                <Image source={{ uri: item.image }} style={styles.featuredImage} />
-                <View style={styles.featuredOverlay} />
+              <TouchableOpacity key={item.slug || item.id} style={styles.featured} onPress={() => open(item)} activeOpacity={0.9}>
+                <View style={styles.featuredImgWrap}>
+                  {item.image ? <Image source={{ uri: item.image }} style={styles.featuredImg} resizeMode="contain" /> : null}
+                </View>
                 <View style={styles.featuredInfo}>
-                  <Text style={styles.featuredCardTitle} numberOfLines={2}>{item.title}</Text>
-                  <Text style={styles.featuredCardPrice}>{item.price}</Text>
+                  <Text style={styles.featuredTitle} numberOfLines={2}>{item.title}</Text>
+                  <Text style={styles.featuredPrice}>{item.price}</Text>
                 </View>
               </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
-      )}
-      {categories.length > 0 && !isSearchMode && (
-        <View style={styles.catRow}>
-          <TouchableOpacity
-            style={[styles.catChip, selectedCategory === 'all' && styles.catChipActive]}
-            onPress={() => handleCategorySelect('all')}
-            activeOpacity={0.75}
-          >
-            <Text style={[styles.catChipText, selectedCategory === 'all' && styles.catChipTextActive]}>Tout</Text>
-          </TouchableOpacity>
-          {categories.map((cat) => (
-            <TouchableOpacity
-              key={String(cat.slug || cat.id)}
-              style={[styles.catChip, selectedCategory === cat.slug && styles.catChipActive]}
-              onPress={() => handleCategorySelect(cat.slug)}
-              activeOpacity={0.75}
-            >
-              <Text style={[styles.catChipText, selectedCategory === cat.slug && styles.catChipTextActive]}>{cat.name}</Text>
-              {cat.product_count ? (
-                <Text style={[styles.catChipCount, selectedCategory === cat.slug && styles.catChipCountActive]}>{cat.product_count}</Text>
-              ) : null}
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
+      ) : null}
+
+      <View style={styles.countRow}>
+        <Text style={styles.countText}>
+          {total != null ? `${total} produit${total > 1 ? 's' : ''}` : ''}
+          {search ? ` pour « ${search} »` : ''}
+        </Text>
+      </View>
     </View>
   );
 
-  if (loading && page === 1 && !isSearchMode) {
-    return (
-      <View style={styles.safeArea}>
-        <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
-          <Text style={styles.headerTitle}>{s.title}</Text>
-        </View>
-        <View style={styles.centerWhite}><ActivityIndicator size="large" color={palette.green} /></View>
-        <BottomNav />
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
-          <View style={styles.headerTop}>
-            <View>
-              <Text style={styles.headerTitle}>{s.title}</Text>
-              <Text style={styles.headerSub}>Découvrez notre gamme</Text>
-            </View>
+    <View style={styles.root}>
+      <FlatList
+        data={products}
+        numColumns={2}
+        keyExtractor={(item, index) => String(item.slug || item.id || index)}
+        columnWrapperStyle={styles.row}
+        renderItem={({ item }) => (
+          <ProductCard item={item} styles={styles} palette={palette} onOpen={open} onOrder={order} />
+        )}
+        ListHeaderComponent={header}
+        ListEmptyComponent={loading ? (
+          <ActivityIndicator style={{ marginTop: 40 }} size="large" color={palette.green} />
+        ) : (
+          <View style={styles.empty}>
+            <Ionicons name={error ? 'cloud-offline-outline' : 'cube-outline'} size={40} color={error ? palette.red : palette.grey} />
+            <Text style={styles.emptyText}>{error ? 'Vous êtes hors connexion' : 'Aucun produit trouvé'}</Text>
+            {error ? (
+              <TouchableOpacity style={styles.retry} onPress={() => load(1)}><Text style={styles.retryText}>Réessayer</Text></TouchableOpacity>
+            ) : null}
           </View>
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={16} color={palette.grey} />
-            <TextInput ref={inputRef} style={styles.searchInput} placeholder={s.search_placeholder}
-              placeholderTextColor={palette.grey} value={searchQuery} onChangeText={handleSearch}
-              returnKeyType="search" onSubmitEditing={Keyboard.dismiss} clearButtonMode="never" />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={clearSearch} style={styles.clearBtn}>
-                <Ionicons name="close-circle" size={18} color={palette.grey} />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-
-        <View style={styles.whiteArea}>
-          {searching ? (
-            <View style={styles.centerWhite}><ActivityIndicator size="large" color={palette.green} /></View>
-          ) : isSearchMode && searchResults.length === 0 ? (
-            <View style={styles.centerWhite}>
-              <View style={styles.emptyIconBox}>
-                <Ionicons name="search-outline" size={36} color={palette.grey} />
-              </View>
-              <Text style={styles.emptyText}>Aucun résultat pour « {searchQuery} »</Text>
-            </View>
-          ) : (
-            <FlatList
-              data={displayData} keyExtractor={(item, index) => (item.id != null ? String(item.id) : `idx-${index}`)} renderItem={renderProduct}
-              onEndReached={!isSearchMode ? loadMore : undefined} onEndReachedThreshold={0.5}
-              keyboardShouldPersistTaps="handled"
-              ListHeaderComponent={ListHeader}
-              ListFooterComponent={loading && page > 1 && !isSearchMode
-                ? <ActivityIndicator style={styles.footerLoader} color={palette.green} />
-                : <View style={{ height: 80 }} />}
-              ListEmptyComponent={!loading ? (
-                <View style={styles.centerWhite}>
-                  <View style={[styles.emptyIconBox, { backgroundColor: fetchError ? `${palette.red}08` : palette.whiteOff }]}>
-                    <Ionicons name={fetchError ? 'cloud-offline-outline' : 'cube-outline'} size={36} color={fetchError ? palette.red : palette.grey} />
-                  </View>
-                  <Text style={styles.emptyText}>{fetchError ? 'Vous êtes hors connexion' : 'Aucun produit disponible'}</Text>
-                  {fetchError ? <Text style={[styles.emptyText, { fontSize: 12, color: palette.grey }]}>Connectez-vous à Internet pour voir les produits</Text> : null}
-                </View>
-              ) : null}
-              contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}
-            />
-          )}
-        </View>
-        <BottomNav />
-      </View>
+        )}
+        ListFooterComponent={loading && products.length > 0
+          ? <ActivityIndicator style={{ paddingVertical: spacing.lg }} color={palette.green} />
+          : <View style={{ height: 100 }} />}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(1); }} tintColor={palette.green} colors={[palette.green]} />}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      />
+      <BottomNav />
     </View>
   );
 }
 
 const cs = (p) => StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: p.white },
-  container: { flex: 1, backgroundColor: p.white },
-  header: { backgroundColor: p.white, paddingHorizontal: spacing.base, paddingBottom: spacing.md, borderBottomWidth: 1, borderBottomColor: p.greyLight },
-  headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm },
-  headerTitle: { fontSize: typography.xl, fontWeight: '800', color: p.dark },
-  headerSub: { fontSize: typography.xs, color: p.greyDark, marginTop: 1 },
-  searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: p.whiteOff, borderRadius: radius.full, paddingHorizontal: spacing.md, height: 40, borderWidth: 1, borderColor: p.greyLight, gap: 6 },
-  searchInput: { flex: 1, color: p.dark, fontSize: typography.sm, paddingVertical: 0 },
-  clearBtn: { padding: 2 },
-  whiteArea: { flex: 1, backgroundColor: p.white },
-  featuredSection: { marginBottom: spacing.sm },
-  featuredTitle: { fontSize: typography.base, fontWeight: '700', color: p.dark, paddingHorizontal: spacing.md, marginBottom: spacing.sm },
-  featuredRow: { paddingHorizontal: spacing.md, gap: spacing.sm },
-  featuredCard: { width: 220, borderRadius: radius.lg, overflow: 'hidden', backgroundColor: p.white, borderWidth: 1, borderColor: p.greyLight },
-  featuredImage: { width: '100%', height: 110, resizeMode: 'cover' },
-  featuredOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 70, backgroundColor: 'rgba(0,0,0,0.35)' },
-  featuredInfo: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: spacing.sm },
-  featuredCardTitle: { color: '#fff', fontSize: typography.sm, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
-  featuredCardPrice: { color: '#fff', fontSize: typography.sm, fontWeight: '800', marginTop: 2 },
-  catRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-  catChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: p.whiteOff, borderRadius: radius.full,
-    paddingHorizontal: spacing.md, paddingVertical: 6,
-    borderWidth: 1, borderColor: p.greyLight,
+  root: { flex: 1, backgroundColor: p.whiteOff },
+  hero: { backgroundColor: p.greenDark, paddingHorizontal: spacing.base, paddingBottom: spacing.xl, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
+  heroTop: { flexDirection: 'row', alignItems: 'center' },
+  heroKicker: { color: p.goldLight, fontSize: typography.sm, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase' },
+  heroTitle: { color: '#fff', fontSize: 26, fontWeight: '900', marginTop: 2 },
+  heroWa: { width: 44, height: 44, borderRadius: 22, backgroundColor: p.whatsapp, justifyContent: 'center', alignItems: 'center' },
+  heroSub: { color: 'rgba(255,255,255,0.82)', fontSize: typography.sm + 1, lineHeight: 19, marginTop: spacing.sm, marginBottom: spacing.md },
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#fff',
+    borderRadius: radius.full, paddingHorizontal: spacing.md, height: 46,
   },
-  catChipActive: { backgroundColor: p.green, borderColor: p.green },
-  catChipText: { color: p.greyDark, fontSize: typography.sm, fontWeight: '600' },
-  catChipTextActive: { color: p.white, fontWeight: '700' },
-  catChipCount: { color: p.grey, fontSize: typography.xs, fontWeight: '600' },
-  catChipCountActive: { color: 'rgba(255,255,255,0.8)' },
-  centerWhite: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: spacing.md, backgroundColor: p.white },
-  listContent: { padding: spacing.md, paddingBottom: 80 },
-  productCard: {
-    backgroundColor: p.white, borderRadius: radius.lg, marginBottom: spacing.md, overflow: 'hidden',
-    borderWidth: 1, borderColor: p.greyLight,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
+  searchInput: { flex: 1, color: p.dark, fontSize: typography.base, paddingVertical: 0 },
+
+  trust: { flexDirection: 'row', justifyContent: 'space-around', backgroundColor: p.white, marginHorizontal: spacing.md, marginTop: -16, borderRadius: radius.md, paddingVertical: 10, borderWidth: 1, borderColor: p.greyLight },
+  trustItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  trustText: { color: p.darkLight, fontSize: typography.xs + 1, fontWeight: '600' },
+
+  chips: { gap: spacing.sm, paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.sm },
+  chip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: 14,
+    borderRadius: radius.full, backgroundColor: p.white, borderWidth: 1, borderColor: p.greyLight, maxWidth: 240,
   },
-  imageWrap: { position: 'relative' },
-  productImage: { width: '100%', height: 200, resizeMode: 'cover' },
-  featuredBadge: { position: 'absolute', top: spacing.sm, right: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 4 },
-  featuredText: { color: p.white, fontSize: 10, fontWeight: '700' },
-  productInfo: { padding: spacing.md },
-  productTitle: { fontSize: typography.base, fontWeight: '700', color: p.dark, marginBottom: spacing.xs, lineHeight: 20 },
-  productPrice: { fontSize: typography.lg, fontWeight: '800', color: p.green, marginBottom: spacing.sm },
-  detailBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: p.whiteOff, paddingVertical: spacing.sm, borderRadius: radius.sm, borderWidth: 1, borderColor: p.greyLight },
-  detailBtnText: { color: p.green, fontSize: typography.sm, fontWeight: '600' },
-  footerLoader: { paddingVertical: spacing.lg },
-  emptyIconBox: { width: 64, height: 64, borderRadius: 32, backgroundColor: p.whiteOff, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: p.greyLight },
-  emptyText: { color: p.grey, fontSize: 15, textAlign: 'center' },
+  chipActive: { backgroundColor: p.green, borderColor: p.green },
+  chipText: { color: p.dark, fontSize: typography.sm + 1, fontWeight: '600' },
+  chipTextActive: { color: '#fff' },
+  chipCount: { color: p.greyDark, fontSize: typography.xs, fontWeight: '700' },
+
+  section: { marginTop: spacing.sm },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing.md, marginBottom: spacing.sm },
+  sectionTitle: { color: p.dark, fontSize: typography.lg, fontWeight: '800' },
+  featuredRow: { gap: spacing.md, paddingHorizontal: spacing.md },
+  featured: { width: 270, flexDirection: 'row', backgroundColor: p.white, borderRadius: radius.md, overflow: 'hidden', borderWidth: 1, borderColor: `${p.gold}66` },
+  featuredImgWrap: { width: 96, height: 96, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' },
+  featuredImg: { width: 88, height: 88 },
+  featuredInfo: { flex: 1, padding: spacing.sm, justifyContent: 'center' },
+  featuredTitle: { color: p.dark, fontSize: typography.sm + 1, fontWeight: '700' },
+  featuredPrice: { color: p.green, fontSize: typography.base, fontWeight: '800', marginTop: 4 },
+
+  countRow: { paddingHorizontal: spacing.md, paddingTop: spacing.lg, paddingBottom: spacing.sm },
+  countText: { color: p.greyDark, fontSize: typography.sm, fontWeight: '600' },
+
+  row: { gap: GAP, paddingHorizontal: spacing.md, marginBottom: GAP },
+  card: { width: CARD_W, backgroundColor: p.white, borderRadius: radius.md, overflow: 'hidden', borderWidth: 1, borderColor: p.greyLight },
+  cardImageWrap: { width: '100%', aspectRatio: 1, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' },
+  cardImage: { width: '88%', height: '88%' },
+  badges: { position: 'absolute', top: 8, right: 8, gap: 4, alignItems: 'flex-end' },
+  badge: { fontSize: 10, fontWeight: '800', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 4, overflow: 'hidden', color: '#fff' },
+  badgeGold: { backgroundColor: p.gold, color: p.dark },
+  badgeGreen: { backgroundColor: p.greenLight },
+  outOfStock: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', paddingVertical: 4 },
+  outOfStockText: { color: '#fff', fontSize: 11, fontWeight: '700', textAlign: 'center' },
+  cardBody: { padding: spacing.sm + 2 },
+  cardCat: { color: p.gold, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', marginBottom: 2 },
+  cardTitle: { color: p.dark, fontSize: typography.sm + 1, fontWeight: '700', lineHeight: 18, minHeight: 36 },
+  cardPrice: { color: p.green, fontSize: typography.md + 1, fontWeight: '900', marginTop: 6 },
+  cardPriceAsk: { color: p.goldDark, fontSize: typography.sm + 1 },
+  cardPrice2: { color: p.greyDark, fontSize: typography.xs },
+  orderBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: spacing.sm,
+    backgroundColor: p.whatsapp, borderRadius: radius.sm, paddingVertical: 9,
+  },
+  orderText: { color: '#fff', fontSize: typography.sm, fontWeight: '800' },
+
+  empty: { alignItems: 'center', paddingTop: 40, gap: spacing.sm },
+  emptyText: { color: p.greyDark, fontSize: typography.base },
+  retry: { backgroundColor: p.green, paddingHorizontal: 20, paddingVertical: 10, borderRadius: radius.full },
+  retryText: { color: '#fff', fontWeight: '700' },
 });
