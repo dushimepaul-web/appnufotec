@@ -112,34 +112,6 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <View style={styles.kicker}>
-            <Ionicons name="leaf" size={12} color={palette.gold} />
-            <Text style={styles.kickerText}>Médecine naturelle · Burundi</Text>
-          </View>
-          <Text style={styles.headline}>
-            La santé par les plantes, <Text style={{ color: palette.gold }}>prouvée par la science</Text>
-          </Text>
-          <Text style={styles.lead}>
-            Consultez un expert en ligne et commandez des produits phytomédicinaux certifiés, livrés chez vous.
-          </Text>
-
-          <TouchableOpacity style={styles.ctaPrimary} onPress={() => router.push('/consultation')} activeOpacity={0.88}>
-            <Ionicons name="calendar-outline" size={19} color={BRAND.ink} />
-            <Text style={styles.ctaPrimaryText}>Être consulté</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.ctaSecondary} onPress={() => router.push('/produits')} activeOpacity={0.85}>
-            <Ionicons name="bag-handle-outline" size={19} color="#FFFFFF" />
-            <Text style={styles.ctaSecondaryText}>Acheter les produits</Text>
-          </TouchableOpacity>
-
-          <View style={styles.trust}>
-            {[['shield-checkmark-outline', 'Experts qualifiés'], ['logo-whatsapp', 'Suivi WhatsApp'], ['lock-closed-outline', 'Confidentiel']].map(([icon, label]) => (
-              <View key={label} style={styles.trustItem}>
-                <Ionicons name={icon as any} size={14} color={palette.gold} />
-                <Text style={styles.trustText}>{label}</Text>
-              </View>
-            ))}
-          </View>
         </LinearGradient>
 
         {/* ─── Chiffres ────────────────────────────────────── */}
@@ -249,9 +221,9 @@ export default function HomeScreen() {
 const cs = (p: any) => StyleSheet.create({
   root: { flex: 1, backgroundColor: p.whiteOff },
 
-  hero: { paddingHorizontal: spacing.lg, paddingBottom: 56, overflow: 'hidden' },
-  watermark: { position: 'absolute', width: SCREEN_W * 1.1, height: SCREEN_W * 1.1, right: -SCREEN_W * 0.35, top: 40, opacity: 0.07 },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xl },
+  hero: { paddingHorizontal: spacing.lg, paddingBottom: 52, overflow: 'hidden' },
+  watermark: { position: 'absolute', width: 220, height: 220, right: -50, top: -30, opacity: 0.08 },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: spacing.sm },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   brandLogo: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', borderWidth: 1.5, borderColor: p.gold },
   brandLogoImg: { width: 34, height: 34 },
@@ -261,24 +233,6 @@ const cs = (p: any) => StyleSheet.create({
   topBtn: { width: 38, height: 38, borderRadius: 19, justifyContent: 'center', alignItems: 'center' },
   dot: { position: 'absolute', top: 8, right: 9, width: 8, height: 8, borderRadius: 4, backgroundColor: p.red, borderWidth: 1.5, borderColor: BRAND.ink },
 
-  kicker: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
-    paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.full,
-    backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)',
-  },
-  kickerText: { color: '#FFFFFF', fontSize: typography.xs + 1, fontWeight: '700' },
-  headline: { color: '#FFFFFF', fontSize: 32, lineHeight: 38, fontWeight: '900', letterSpacing: -0.6, marginTop: spacing.md },
-  lead: { color: 'rgba(255,255,255,0.82)', fontSize: typography.md, lineHeight: 22, marginTop: spacing.md, marginBottom: spacing.xl },
-  ctaPrimary: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 54, borderRadius: radius.full, backgroundColor: p.gold },
-  ctaPrimaryText: { color: BRAND.ink, fontSize: typography.md + 1, fontWeight: '800' },
-  ctaSecondary: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 54, borderRadius: radius.full,
-    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.5)', marginTop: spacing.md,
-  },
-  ctaSecondaryText: { color: '#FFFFFF', fontSize: typography.md + 1, fontWeight: '700' },
-  trust: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: spacing.xl },
-  trustItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  trustText: { color: 'rgba(255,255,255,0.85)', fontSize: typography.sm },
 
   stats: {
     flexDirection: 'row', alignItems: 'center', marginHorizontal: spacing.lg, marginTop: -32,
