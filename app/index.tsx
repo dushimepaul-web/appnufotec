@@ -14,17 +14,20 @@ import { useRecent } from '../src/hooks/useMedias';
 import api, { whatsappUrl } from '../src/utils/api';
 import { adaptProduct } from '../src/utils/adapters';
 import { formatNumber } from '../src/utils/format';
-import { BRAND, radius, spacing, typography } from '../src/utils/theme';
+import { BRAND, mix, radius, spacing, typography } from '../src/utils/theme';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const LOGO = require('../assets/logo.png');
 
-const SERVICES = [
-  { title: 'Médias', sub: 'Émissions santé', icon: 'play-circle', route: '/medias' },
-  { title: 'Consultation', sub: 'Avis d\'expert', icon: 'medkit', route: '/consultation' },
-  { title: 'Boutique', sub: 'Produits naturels', icon: 'leaf', route: '/produits' },
-  { title: 'Hors-ligne', sub: 'Mes téléchargements', icon: 'cloud-download', route: '/OfflineScreen' },
+type Service = { key: string; title: string; sub: string; icon: string; route: string; tone: 'green' | 'gold' | 'light' | 'outline' };
+const SERVICES: Service[] = [
+  { key: 'medias', title: 'Médias', sub: 'émissions santé', icon: 'play-circle', route: '/medias', tone: 'green' },
+  { key: 'produits', title: 'Boutique', sub: 'produits naturels', icon: 'leaf', route: '/produits', tone: 'gold' },
+  { key: 'consultation', title: 'Consultation', sub: "Avis d'un expert", icon: 'medkit', route: '/consultation', tone: 'light' },
+  { key: 'temoignages', title: 'Témoignages', sub: 'histoires vraies', icon: 'chatbubbles', route: '/temoignages', tone: 'outline' },
 ];
+
+const SLIDE_W = SCREEN_W - spacing.lg * 2;
 
 function SectionHeader({ title, action, onPress, styles }: any) {
   return (
@@ -79,63 +82,111 @@ export default function HomeScreen() {
     Linking.openURL(whatsappUrl(s.contact.whatsapp, msg)).catch(() => {});
   };
 
-  const stats = [
-    { value: mediaCount != null ? formatNumber(mediaCount) : '—', label: 'Médias santé' },
-    { value: productCount != null ? String(productCount) : '—', label: 'Produits' },
-    { value: testimonials.length ? String(testimonials.length) : '—', label: 'Témoignages' },
-  ];
+  const counts: Record<string, number | null> = {
+    medias: mediaCount,
+    produits: productCount,
+    temoignages: testimonials.length || null,
+  };
+
+  const [slide, setSlide] = useState(0);
+  const latestVideo: any = (recent as any[]).find((m: any) => m.thumbnail_url && m.type !== 'audio') || (recent as any[])[0];
+  const featuredProduct = products.find((p: any) => p.vedette) || products[0];
+  const slides = [
+    latestVideo && {
+      key: 'media', kicker: 'NOUVELLE ÉMISSION', title: latestVideo.titre, cta: 'Regarder', icon: 'play',
+      image: latestVideo.type === 'audio' ? null : latestVideo.thumbnail_url, cover: true,
+      onPress: () => router.push({ pathname: '/PlayerScreen', params: { slug: latestVideo.slug || latestVideo.id_media } }),
+    },
+    featuredProduct && {
+      key: 'product', kicker: 'PRODUIT VEDETTE', title: featuredProduct.title, sub: featuredProduct.price, cta: 'Commander', icon: 'bag-handle',
+      image: featuredProduct.image, cover: false,
+      onPress: () => router.push({ pathname: '/product-detail', params: { slug: featuredProduct.slug || featuredProduct.id } }),
+    },
+    {
+      key: 'consult', kicker: 'CONSULTATION', title: 'Parlez à un expert en santé naturelle', sub: `Burundi : ${s.consultation.local_price}`, cta: 'Réserver', icon: 'calendar',
+      image: null, cover: false, onPress: () => router.push('/consultation'),
+    },
+  ].filter(Boolean) as any[];
 
   return (
     <View style={styles.root}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 110 }}>
-        {/* ─── Hero ─────────────────────────────────────────── */}
-        <LinearGradient colors={[palette.greenDark, BRAND.ink]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.hero, { paddingTop: insets.top + 8 }]}>
-          <Image source={LOGO} style={styles.watermark} resizeMode="contain" />
-
-          <View style={styles.topBar}>
-            <View style={styles.brand}>
-              <View style={styles.brandLogo}><Image source={LOGO} style={styles.brandLogoImg} resizeMode="contain" /></View>
-              <View>
-                <Text style={styles.brandName}>{s.app_name} <Text style={{ color: palette.gold }}>{s.app_subtitle}</Text></Text>
-                <Text style={styles.brandTag}>{s.tagline}</Text>
-              </View>
+        {/* ─── En-tête ──────────────────────────────────── */}
+        <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+          <View style={styles.headerRow}>
+            <View style={styles.brandLogo}><Image source={LOGO} style={styles.brandLogoImg} resizeMode="contain" /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.brandName}>{s.app_name} <Text style={{ color: palette.gold }}>{s.app_subtitle}</Text></Text>
+              <Text style={styles.brandTag}>{s.tagline}</Text>
             </View>
-            <View style={styles.topActions}>
-              <TouchableOpacity style={styles.topBtn} onPress={() => router.push('/SearchScreen')}>
-                <Ionicons name="search-outline" size={20} color="#FFFFFF" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.topBtn} onPress={() => router.push('/NotificationsScreen')}>
-                <Ionicons name="notifications-outline" size={20} color="#FFFFFF" />
-                {unreadCount > 0 ? <View style={styles.dot} /> : null}
-              </TouchableOpacity>
-              <ThemeToggle inline />
+            <TouchableOpacity style={styles.headerBtn} onPress={() => router.push('/NotificationsScreen')}>
+              <Ionicons name="notifications-outline" size={21} color={palette.dark} />
+              {unreadCount > 0 ? <View style={styles.dot} /> : null}
+            </TouchableOpacity>
+            <ThemeToggle inline />
+          </View>
+          <TouchableOpacity style={styles.search} onPress={() => router.push('/SearchScreen')} activeOpacity={0.85}>
+            <Ionicons name="search" size={18} color={palette.greyDark} />
+            <Text style={styles.searchText}>Rechercher une émission, un remède…</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ─── À la une (carrousel) ─────────────────────── */}
+        {slides.length > 0 ? (
+          <View>
+            <ScrollView
+              horizontal showsHorizontalScrollIndicator={false} decelerationRate="fast"
+              snapToInterval={SLIDE_W + spacing.md} contentContainerStyle={styles.slides}
+              onScroll={(e) => setSlide(Math.round(e.nativeEvent.contentOffset.x / (SLIDE_W + spacing.md)))}
+              scrollEventThrottle={32}
+            >
+              {slides.map((sl) => (
+                <TouchableOpacity key={sl.key} style={styles.slide} onPress={sl.onPress} activeOpacity={0.92}>
+                  <LinearGradient colors={[palette.greenDark, BRAND.ink]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+                  {sl.image && sl.cover ? <Image source={{ uri: sl.image }} style={styles.slideCover} resizeMode="cover" /> : null}
+                  {sl.image && sl.cover ? (
+                    <LinearGradient colors={['rgba(15,36,23,0)', 'rgba(15,36,23,0.92)']} style={StyleSheet.absoluteFill} />
+                  ) : null}
+                  {sl.image && !sl.cover ? (
+                    <View style={styles.slideProduct}><Image source={{ uri: sl.image }} style={styles.slideProductImg} resizeMode="contain" /></View>
+                  ) : null}
+                  {!sl.image ? <View style={styles.slideLogo}><Image source={LOGO} style={styles.slideLogoImg} resizeMode="contain" /></View> : null}
+                  <View style={[styles.slideBody, !sl.cover && { right: sl.image ? '46%' : 150 }]}>
+                    <Text style={styles.slideKicker}>{sl.kicker}</Text>
+                    <Text style={styles.slideTitle} numberOfLines={2}>{sl.title}</Text>
+                    {sl.sub ? <Text style={styles.slideSub} numberOfLines={1}>{sl.sub}</Text> : null}
+                    <View style={styles.slideCta}>
+                      <Ionicons name={sl.icon} size={14} color={BRAND.ink} />
+                      <Text style={styles.slideCtaText}>{sl.cta}</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <View style={styles.dots}>
+              {slides.map((sl, i) => <View key={sl.key} style={[styles.dotItem, i === slide && styles.dotActive]} />)}
             </View>
           </View>
-
-        </LinearGradient>
-
-        {/* ─── Chiffres ────────────────────────────────────── */}
-        <View style={styles.stats}>
-          {stats.map((st, i) => (
-            <React.Fragment key={st.label}>
-              {i > 0 ? <View style={styles.statSep} /> : null}
-              <View style={styles.stat}>
-                <Text style={styles.statValue}>{st.value}</Text>
-                <Text style={styles.statLabel}>{st.label}</Text>
-              </View>
-            </React.Fragment>
-          ))}
-        </View>
+        ) : null}
 
         {/* ─── Services ────────────────────────────────────── */}
         <View style={styles.services}>
-          {SERVICES.map((sv) => (
-            <TouchableOpacity key={sv.title} style={styles.service} onPress={() => router.push(sv.route as any)} activeOpacity={0.8}>
-              <View style={styles.serviceIcon}><Ionicons name={sv.icon as any} size={24} color={palette.green} /></View>
-              <Text style={styles.serviceTitle} numberOfLines={1}>{sv.title}</Text>
-              <Text style={styles.serviceSub} numberOfLines={1}>{sv.sub}</Text>
-            </TouchableOpacity>
-          ))}
+          {SERVICES.map((sv) => {
+            const count = counts[sv.key];
+            const dark = sv.tone === 'green';
+            return (
+              <TouchableOpacity key={sv.key} style={[styles.service, styles[`tone_${sv.tone}` as keyof typeof styles] as any]} onPress={() => router.push(sv.route as any)} activeOpacity={0.88}>
+                <View style={[styles.serviceIcon, dark && styles.serviceIconDark]}>
+                  <Ionicons name={sv.icon as any} size={20} color={dark ? BRAND.ink : palette.green} />
+                </View>
+                <Text style={[styles.serviceTitle, dark && { color: '#FFFFFF' }]}>{sv.title}</Text>
+                <Text style={[styles.serviceSub, dark && { color: 'rgba(255,255,255,0.75)' }]} numberOfLines={1}>
+                  {count ? `${formatNumber(count)} ${sv.sub}` : sv.sub.charAt(0).toUpperCase() + sv.sub.slice(1)}
+                </Text>
+                <Ionicons name="arrow-forward" size={16} color={dark ? palette.gold : palette.green} style={styles.serviceArrow} />
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* ─── Derniers médias ─────────────────────────────── */}
@@ -221,34 +272,48 @@ export default function HomeScreen() {
 const cs = (p: any) => StyleSheet.create({
   root: { flex: 1, backgroundColor: p.whiteOff },
 
-  hero: { paddingHorizontal: spacing.lg, paddingBottom: 52, overflow: 'hidden' },
-  watermark: { position: 'absolute', width: 220, height: 220, right: -50, top: -30, opacity: 0.08 },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: spacing.sm },
-  brand: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
-  brandLogo: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', borderWidth: 1.5, borderColor: p.gold },
-  brandLogoImg: { width: 34, height: 34 },
-  brandName: { color: '#FFFFFF', fontSize: typography.base, fontWeight: '900', letterSpacing: 0.2 },
-  brandTag: { color: 'rgba(255,255,255,0.65)', fontSize: 10, marginTop: 1 },
-  topActions: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  topBtn: { width: 38, height: 38, borderRadius: 19, justifyContent: 'center', alignItems: 'center' },
-  dot: { position: 'absolute', top: 8, right: 9, width: 8, height: 8, borderRadius: 4, backgroundColor: p.red, borderWidth: 1.5, borderColor: BRAND.ink },
-
-
-  stats: {
-    flexDirection: 'row', alignItems: 'center', marginHorizontal: spacing.lg, marginTop: -32,
-    backgroundColor: p.white, borderRadius: radius.lg, paddingVertical: spacing.lg,
-    shadowColor: BRAND.ink, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 18, elevation: 6,
+  header: { backgroundColor: p.white, paddingHorizontal: spacing.lg, paddingBottom: spacing.md },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  brandLogo: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', borderWidth: 1.5, borderColor: p.gold },
+  brandLogoImg: { width: 36, height: 36 },
+  brandName: { color: p.dark, fontSize: typography.md, fontWeight: '900', letterSpacing: 0.2 },
+  brandTag: { color: p.greyDark, fontSize: 11, marginTop: 1 },
+  headerBtn: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  dot: { position: 'absolute', top: 9, right: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: p.red, borderWidth: 1.5, borderColor: p.white },
+  search: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: spacing.md, height: 46, paddingHorizontal: spacing.md,
+    borderRadius: radius.full, backgroundColor: p.whiteOff, borderWidth: 1, borderColor: p.greyLight,
   },
-  stat: { flex: 1, alignItems: 'center' },
-  statSep: { width: 1, height: 34, backgroundColor: p.greyLight },
-  statValue: { color: p.green, fontSize: 24, fontWeight: '900' },
-  statLabel: { color: p.greyDark, fontSize: typography.xs + 1, fontWeight: '600', marginTop: 2 },
+  searchText: { color: p.grey, fontSize: typography.base },
 
-  services: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: spacing.lg, marginTop: spacing.xl },
-  service: { width: (SCREEN_W - spacing.lg * 2 - spacing.sm * 3) / 4, alignItems: 'center' },
-  serviceIcon: { width: 58, height: 58, borderRadius: 18, backgroundColor: p.greenSoft, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
-  serviceTitle: { color: p.dark, fontSize: typography.sm, fontWeight: '800' },
-  serviceSub: { color: p.greyDark, fontSize: 10, marginTop: 1 },
+  slides: { gap: spacing.md, paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
+  slide: { width: SLIDE_W, height: 190, borderRadius: radius.lg, overflow: 'hidden', backgroundColor: p.greenDark },
+  slideCover: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
+  slideProduct: { position: 'absolute', right: 14, top: 14, bottom: 14, width: '40%', borderRadius: radius.md, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center' },
+  slideProductImg: { width: '88%', height: '88%' },
+  slideLogo: { position: 'absolute', right: 18, top: 35, width: 120, height: 120, borderRadius: 60, overflow: 'hidden', backgroundColor: '#FFFFFF', borderWidth: 3, borderColor: p.gold, justifyContent: 'center', alignItems: 'center' },
+  slideLogoImg: { width: 92, height: 92 },
+  slideBody: { position: 'absolute', left: 18, right: 18, bottom: 16 },
+  slideKicker: { color: p.gold, fontSize: 11, fontWeight: '900', letterSpacing: 1.5 },
+  slideTitle: { color: '#FFFFFF', fontSize: typography.lg + 1, fontWeight: '900', lineHeight: 23, marginTop: 4 },
+  slideSub: { color: 'rgba(255,255,255,0.8)', fontSize: typography.sm, marginTop: 2 },
+  slideCta: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginTop: 10, backgroundColor: p.gold, paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.full },
+  slideCtaText: { color: BRAND.ink, fontSize: typography.sm, fontWeight: '900' },
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: spacing.sm },
+  dotItem: { width: 6, height: 6, borderRadius: 3, backgroundColor: p.greyLight },
+  dotActive: { width: 18, backgroundColor: p.green },
+
+  services: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, paddingHorizontal: spacing.lg, marginTop: spacing.lg },
+  service: { width: (SCREEN_W - spacing.lg * 2 - spacing.md) / 2, minHeight: 118, borderRadius: radius.lg, padding: spacing.md },
+  tone_green: { backgroundColor: p.green },
+  tone_gold: { backgroundColor: mix(BRAND.gold, '#FFFFFF', 0.82) },
+  tone_light: { backgroundColor: p.greenSoft },
+  tone_outline: { backgroundColor: p.white, borderWidth: 1, borderColor: p.greyLight },
+  serviceIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: p.white, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.md },
+  serviceIconDark: { backgroundColor: p.gold },
+  serviceTitle: { color: p.dark, fontSize: typography.md + 1, fontWeight: '900' },
+  serviceSub: { color: p.greyDark, fontSize: typography.sm, marginTop: 2 },
+  serviceArrow: { position: 'absolute', top: spacing.md + 10, right: spacing.md },
 
   section: { marginTop: spacing.xl },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: spacing.lg, marginBottom: spacing.md },
