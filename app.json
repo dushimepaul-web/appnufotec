@@ -23,16 +23,17 @@
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.RECORD_AUDIO",
+        "android.permission.INTERNET",
         "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
-        "android.permission.ACCESS_MEDIA_LOCATION",
         "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_MEDIA_LOCATION",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.READ_MEDIA_AUDIO",
-        "android.permission.INTERNET"
+        "android.permission.READ_MEDIA_VIDEO"
       ]
     },
     "web": {
@@ -70,25 +71,30 @@
           "supportsPictureInPicture": true
         }
       ],
-      "expo-audio",
-      "expo-notifications",
       [
-        "expo-media-library",
+        "expo-audio",
         {
-          "photosPermission": "NUFOTEC a besoin d'acceder a votre galerie pour sauvegarder les videos telechargees.",
-          "savePhotosPermission": "NUFOTEC a besoin de sauvegarder les videos dans votre galerie.",
-          "isAccessMediaLocationEnabled": true
+          "recordAudioAndroid": false,
+          "microphonePermission": false
         }
       ],
+      "expo-notifications",
       "expo-file-system",
       [
         "expo-image-picker",
         {
-          "cameraPermission": "Allow NUFOTEC to access your camera to take photos for consultation."
+          "photosPermission": "NUFOTEC a besoin d'accéder à vos photos pour joindre un document à votre consultation.",
+          "cameraPermission": "NUFOTEC a besoin de l'appareil photo pour photographier un document de consultation.",
+          "microphonePermission": false
         }
       ],
       "expo-asset",
-      "expo-secure-store"
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

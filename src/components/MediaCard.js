@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useContext, useMemo } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Image from './CachedImage';
 import { PlayerActionsContext } from '../contexts/PlayerContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { timeAgo } from '../utils/format';
@@ -54,7 +55,7 @@ export default function MediaCard({ item, onPress, horizontal = false, variant =
       {useDisc ? (
         <MediaThumb type={item.type} small={small} />
       ) : hasThumb ? (
-        <Image source={{ uri: item.thumbnail_url }} style={styles.thumbImg} resizeMode="cover" />
+        <Image source={{ uri: item.thumbnail_url }} style={styles.thumbImg} resizeMode="cover" thumb={style === styles.thumbCompact} />
       ) : (
         <View style={styles.placeholder}>
           <Image source={getDefaultThumbnail(item.type)} style={styles.placeholderImg} resizeMode="contain" />

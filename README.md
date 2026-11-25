@@ -1,3 +1,34 @@
+# NUFOTEC APP
+
+Application mobile (Expo / React Native) de NUFOTEC BURUNDI, branchée sur l'API du dépôt `nufotec`.
+
+## Exigences non fonctionnelles
+
+**Sécurité et confidentialité**
+- Jeton de connexion dans le stockage chiffré du téléphone (`expo-secure-store`).
+- En production, l'API n'est appelée qu'en HTTPS : une adresse `http://` dans `EXPO_PUBLIC_API_URL` est ignorée.
+- Permissions réduites au nécessaire (`app.json`) : pas de micro, pas de position GPS des photos, pas d'écriture
+  du stockage, pas de Face ID ; ces permissions sont bloquées même si une bibliothèque les ajoute (`blockedPermissions`).
+
+**Rapidité**
+- Réponses de l'API gardées en cache avec leur ETag (`src/utils/httpCache.js`) : si rien n'a changé, l'API répond
+  304 sans contenu et l'app réutilise sa copie.
+- Images mises en cache mémoire + disque (`src/components/CachedImage.js`, basé sur `expo-image`), WebP demandé
+  explicitement au serveur ; vignettes de 400 px (`?w=400`, 10 à 25 Ko) dans les listes (prop `thumb`).
+- Accueil en une seule requête au démarrage (`api.warmup()` -> `GET /accueil`) : les six adresses qu'elle remplace
+  sont servies depuis le cache. Une copie de moins de 30 s est utilisée sans requête.
+- Affichage immédiat : les écrans reçoivent d'abord la copie gardée (`options.onCached`), puis la version à jour ;
+  « tirer pour actualiser » interroge toujours le serveur (`options.force`).
+- Audio lu dans sa version légère (~64 kbit/s) par défaut (`/medias/{slug}/flux`).
+
+**Disponibilité**
+- Nouvelles tentatives seulement sur les erreurs passagères (réseau, 408, 429, 5xx), en respectant `Retry-After`.
+- Chaque envoi porte une `Idempotency-Key` : une commande renvoyée après une coupure n'est jamais enregistrée deux fois.
+- Sans réseau ou serveur indisponible : la dernière copie des données est affichée (réponse marquée `stale: true`).
+- Médias téléchargeables pour une écoute hors ligne.
+
+---
+
 # Welcome to your Expo app 👋
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).

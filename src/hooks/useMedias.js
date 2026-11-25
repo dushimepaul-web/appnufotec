@@ -26,7 +26,7 @@ export function useMedias({ type = 'all', limit = 20, category, q } = {}) {
   const inFlight = useRef(false);
   const requestId = useRef(0);
 
-  const fetchData = useCallback(async (reset = false) => {
+  const fetchData = useCallback(async (reset = false, force = false) => {
     if (inFlight.current && !reset) return;
     inFlight.current = true;
     const id = ++requestId.current;
@@ -40,8 +40,14 @@ export function useMedias({ type = 'all', limit = 20, category, q } = {}) {
         setLoadingMore(true);
       }
       const cats = categoriesFor(type, category);
+      // Première page : la copie gardée s'affiche tout de suite (une seule catégorie), puis la version à jour.
+      const onCached = reset && cats.length === 1 ? (cached) => {
+        if (id !== requestId.current || !cached?.success) return;
+        setData((cached.data?.items || []).map((item) => adaptMedia(item)));
+        setLoading(false);
+      } : undefined;
       const responses = await Promise.all(cats.map((categorie) => (
-        api.getMedias({ page, perPage: limit, categorie, q })
+        api.getMedias({ page, perPage: limit, categorie, q }, { onCached, force })
       )));
       if (id !== requestId.current) return;
       const ok = responses.filter((res) => res?.success);
@@ -79,7 +85,7 @@ export function useMedias({ type = 'all', limit = 20, category, q } = {}) {
   const refresh = useCallback(() => {
     setRefreshing(true);
     pageRef.current = 0;
-    fetchData(true);
+    fetchData(true, true);
   }, [fetchData]);
 
   const loadMore = useCallback(() => {
@@ -199,8 +205,10 @@ export function useRecent(limit = 20) {
   const fetch = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.getRecent(limit);
-      if (res?.success) setData((res.data?.items || []).map((item) => adaptMedia(item)));
+      const show = (res) => {
+        if (res?.success) setData((res.data?.items || []).map((item) => adaptMedia(item)));
+      };
+      show(await api.getRecent(limit, { onCached: (cached) => { show(cached); setLoading(false); } }));
     } catch (e) {
       setError(e.message);
     } finally {

@@ -1,10 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator, Alert, Dimensions, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, Share,
-  StyleSheet, Text, TextInput, TouchableOpacity, View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import Image from '../src/components/CachedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSettings } from '../src/contexts/SettingsContext';
 import { useTheme } from '../src/contexts/ThemeContext';
@@ -231,7 +229,7 @@ export default function ProductDetailScreen() {
                     onPress={() => router.push({ pathname: '/product-detail', params: { slug: item.slug || item.id } })}
                   >
                     <View style={styles.similarImgWrap}>
-                      {item.image ? <Image source={{ uri: item.image }} style={styles.similarImg} resizeMode="contain" /> : null}
+                      {item.image ? <Image source={{ uri: item.image }} style={styles.similarImg} resizeMode="contain" thumb /> : null}
                     </View>
                     <Text style={styles.similarTitle} numberOfLines={2}>{item.title}</Text>
                     <Text style={styles.similarPrice}>{item.price}</Text>
@@ -272,7 +270,7 @@ export default function ProductDetailScreen() {
               <TouchableOpacity onPress={() => setShowOrderForm(false)}><Ionicons name="close" size={24} color={palette.dark} /></TouchableOpacity>
             </View>
             <View style={styles.summary}>
-              {product.image ? <Image source={{ uri: product.image }} style={styles.summaryImg} resizeMode="contain" /> : null}
+              {product.image ? <Image source={{ uri: product.image }} style={styles.summaryImg} resizeMode="contain" thumb /> : null}
               <View style={{ flex: 1 }}>
                 <Text style={styles.summaryTitle} numberOfLines={1}>{product.title}</Text>
                 <Text style={styles.summaryMeta}>{`${quantity} × ${product.price}`}</Text>

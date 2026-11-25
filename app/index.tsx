@@ -2,7 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Dimensions, Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Image from '../src/components/CachedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BottomNav from '../src/components/BottomNav';
 import MediaCard from '../src/components/MediaCard';
@@ -59,22 +60,21 @@ export default function HomeScreen() {
 
   // Données réelles de l'API : compteurs, produits phares, témoignages.
   useEffect(() => {
-    api.getMediaCategories()
-      .then((res: any) => {
-        if (!res?.success || !Array.isArray(res.data)) return;
-        setMediaCount(res.data.reduce((n: number, c: any) => n + (Number(c.medias) || 0), 0));
-      })
-      .catch(() => {});
-    api.getProducts({ perPage: 8 })
-      .then((res: any) => {
-        if (!res?.success) return;
-        setProducts((res.data?.items || []).map((p: any) => adaptProduct(p)));
-        setProductCount(res.data?.meta?.total ?? null);
-      })
-      .catch(() => {});
-    api.getTestimonials()
-      .then((res: any) => { if (res?.success && Array.isArray(res.data)) setTestimonials(res.data); })
-      .catch(() => {});
+    // Chaque bloc s'affiche d'abord avec la copie gardée (onCached), puis avec la version à jour.
+    // Au démarrage, ces trois adresses sont servies par la requête groupée /accueil (api.warmup).
+    const showCategories = (res: any) => {
+      if (!res?.success || !Array.isArray(res.data)) return;
+      setMediaCount(res.data.reduce((n: number, c: any) => n + (Number(c.medias) || 0), 0));
+    };
+    const showProducts = (res: any) => {
+      if (!res?.success) return;
+      setProducts((res.data?.items || []).map((p: any) => adaptProduct(p)));
+      setProductCount(res.data?.meta?.total ?? null);
+    };
+    const showTestimonials = (res: any) => { if (res?.success && Array.isArray(res.data)) setTestimonials(res.data); };
+    api.getMediaCategories({ onCached: showCategories }).then(showCategories).catch(() => {});
+    api.getProducts({ perPage: 8 }, { onCached: showProducts }).then(showProducts).catch(() => {});
+    api.getTestimonials({ onCached: showTestimonials }).then(showTestimonials).catch(() => {});
   }, []);
 
   const openWhatsApp = () => {
@@ -148,7 +148,7 @@ export default function HomeScreen() {
                     <LinearGradient colors={['rgba(15,36,23,0)', 'rgba(15,36,23,0.92)']} style={StyleSheet.absoluteFill} />
                   ) : null}
                   {sl.image && !sl.cover ? (
-                    <View style={styles.slideProduct}><Image source={{ uri: sl.image }} style={styles.slideProductImg} resizeMode="contain" /></View>
+                    <View style={styles.slideProduct}><Image source={{ uri: sl.image }} style={styles.slideProductImg} resizeMode="contain" thumb /></View>
                   ) : null}
                   {!sl.image ? <View style={styles.slideLogo}><Image source={LOGO} style={styles.slideLogoImg} resizeMode="contain" /></View> : null}
                   <View style={[styles.slideBody, !sl.cover && { right: sl.image ? '46%' : 150 }]}>
@@ -223,7 +223,7 @@ export default function HomeScreen() {
                   onPress={() => router.push({ pathname: '/product-detail', params: { slug: p.slug || p.id } })}
                 >
                   <View style={styles.productImgWrap}>
-                    {p.image ? <Image source={{ uri: p.image }} style={styles.productImg} resizeMode="contain" /> : null}
+                    {p.image ? <Image source={{ uri: p.image }} style={styles.productImg} resizeMode="contain" thumb /> : null}
                     {p.vedette ? <Text style={styles.productBadge}>Vedette</Text> : null}
                   </View>
                   <View style={styles.productBody}>

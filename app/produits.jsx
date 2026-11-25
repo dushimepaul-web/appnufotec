@@ -1,10 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator, Dimensions, FlatList, Image, Keyboard, Linking, RefreshControl, ScrollView, StyleSheet, Text,
-  TextInput, TouchableOpacity, View,
-} from 'react-native';
+import { ActivityIndicator, Dimensions, FlatList, Keyboard, Linking, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import Image from '../src/components/CachedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BottomNav from '../src/components/BottomNav';
 import { useSettings } from '../src/contexts/SettingsContext';
@@ -23,7 +21,7 @@ function ProductCard({ item, styles, palette, onOpen, onOrder }) {
     <TouchableOpacity style={styles.card} onPress={() => onOpen(item)} activeOpacity={0.9}>
       <View style={styles.cardImageWrap}>
         {item.image ? (
-          <Image source={{ uri: item.image }} style={styles.cardImage} resizeMode="contain" />
+          <Image source={{ uri: item.image }} style={styles.cardImage} resizeMode="contain" thumb />
         ) : (
           <Ionicons name="leaf-outline" size={40} color={palette.green} />
         )}
@@ -77,24 +75,27 @@ export default function ProduitsScreen() {
       .catch(() => {});
   }, []);
 
-  const load = useCallback(async (pageToLoad) => {
+  const load = useCallback(async (pageToLoad, force = false) => {
     const id = ++reqId.current;
     setLoading(true);
     setError(null);
     try {
-      const res = await api.getProducts({
-        page: pageToLoad, perPage: PER_PAGE, tri: 'recent',
-        categorie: category === 'all' ? undefined : category,
-        q: search || undefined,
-      });
-      if (id !== reqId.current) return;
-      if (res?.success) {
+      const show = (res) => {
+        if (id !== reqId.current || !res?.success) return;
         const items = (res.data?.items || []).map((item) => adaptProduct(item));
         setProducts((prev) => (pageToLoad === 1 ? items : [...prev, ...items]));
         setPages(res.data?.meta?.pages ?? 1);
         setTotal(res.data?.meta?.total ?? items.length);
         setPage(pageToLoad);
-      }
+      };
+      // Première page : la copie gardée s'affiche tout de suite, puis la version à jour.
+      const onCached = pageToLoad === 1 ? (cached) => { show(cached); if (id === reqId.current) setLoading(false); } : undefined;
+      const res = await api.getProducts({
+        page: pageToLoad, perPage: PER_PAGE, tri: 'recent',
+        categorie: category === 'all' ? undefined : category,
+        q: search || undefined,
+      }, { onCached, force });
+      show(res);
     } catch (e) {
       if (id === reqId.current) setError(e.message);
     } finally {
@@ -185,7 +186,7 @@ export default function ProduitsScreen() {
             {featured.map((item) => (
               <TouchableOpacity key={item.slug || item.id} style={styles.featured} onPress={() => open(item)} activeOpacity={0.9}>
                 <View style={styles.featuredImgWrap}>
-                  {item.image ? <Image source={{ uri: item.image }} style={styles.featuredImg} resizeMode="contain" /> : null}
+                  {item.image ? <Image source={{ uri: item.image }} style={styles.featuredImg} resizeMode="contain" thumb /> : null}
                 </View>
                 <View style={styles.featuredInfo}>
                   <Text style={styles.featuredTitle} numberOfLines={2}>{item.title}</Text>
@@ -233,7 +234,7 @@ export default function ProduitsScreen() {
           : <View style={{ height: 100 }} />}
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(1); }} tintColor={palette.green} colors={[palette.green]} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(1, true); }} tintColor={palette.green} colors={[palette.green]} />}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       />
