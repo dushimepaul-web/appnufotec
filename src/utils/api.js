@@ -1,5 +1,6 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import { readCache, writeCache } from './httpCache';
 
 function resolveDevApiBase() {
   if (Platform.OS === 'web') return 'http://127.0.0.1:8000/api/v1';
@@ -24,7 +25,15 @@ function webDevProxyBase() {
   return `${origin}/__api`;
 }
 
-const API_BASE = (webDevProxyBase() || process.env.EXPO_PUBLIC_API_URL || DEFAULT_API_BASE).replace(/\/+$/, '');
+// Sécurité : en production, l'app ne parle à l'API qu'en HTTPS (jetons et données de santé chiffrés en transit).
+// Une adresse http:// mal configurée dans EXPO_PUBLIC_API_URL est ignorée au profit de l'adresse officielle.
+function secureBase(url) {
+  if (__DEV__ || !url || url.startsWith('https://')) return url;
+  console.warn('EXPO_PUBLIC_API_URL ignorée : HTTPS obligatoire en production');
+  return null;
+}
+
+const API_BASE = (webDevProxyBase() || secureBase(process.env.EXPO_PUBLIC_API_URL) || DEFAULT_API_BASE).replace(/\/+$/, '');
 
 export const BASE_URL = API_BASE;
 export const SITE_URL = (process.env.EXPO_PUBLIC_SITE_URL || 'https://nufotec.com').replace(/\/+$/, '');
@@ -84,28 +93,66 @@ export function resolveUrl(path) {
   return `${BASE_URL}/${path}`;
 }
 
+// Disponibilité : on ne réessaie que les erreurs passagères (réseau coupé, délai dépassé, serveur occupé
+// ou momentanément indisponible), en respectant le délai Retry-After envoyé par l'API. Une erreur définitive
+// (données invalides, introuvable, accès refusé) n'est pas répétée : réponse immédiate, pas de données gaspillées.
+const RETRY_STATUS = [408, 425, 429, 500, 502, 503, 504];
+
+function isTransient(error) {
+  return !error.status || RETRY_STATUS.includes(error.status);
+}
+
+function retryDelay(attempt, error) {
+  const after = Number(error.retryAfter);
+  if (after > 0) return Math.min(after, 10) * 1000;
+  return 1000 * Math.pow(2, attempt) + Math.random() * 300; // 1 s, 2 s, 4 s (+ un peu de hasard)
+}
+
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Clé anti-doublon : la même pour toutes les tentatives d'un envoi. Si la réponse se perd (coupure) et que
+// l'app renvoie la commande, l'API reconnaît la clé et ne l'enregistre pas une seconde fois.
+function idempotencyKey() {
+  const hex = () => Math.floor(Math.random() * 0x100000000).toString(16).padStart(8, '0');
+  return `m-${Date.now().toString(36)}-${hex()}${hex()}${hex()}`;
+}
+
 class ApiService {
   constructor() {
     this.baseUrl = BASE_URL;
   }
 
+  /**
+   * GET. Les réponses publiques (sans jeton) sont gardées en cache avec leur ETag :
+   * 304 -> la copie est réutilisée ; réseau ou serveur indisponible -> la dernière copie est renvoyée,
+   * marquée `stale: true` (l'écran peut afficher « données hors ligne »).
+   */
   async request(endpoint, params = {}, retries = 2, silent = false, token = null) {
     const query = buildQuery(params);
     const url = `${this.baseUrl}/${endpoint}${query ? `?${query}` : ''}`;
-    const headers = { Accept: 'application/json' };
+    const headers = { Accept: 'application/json', 'Accept-Language': 'fr' };
     if (token) headers.Authorization = `Bearer ${token}`;
+    const cached = token ? null : await readCache(url);
+    if (cached?.etag) headers['If-None-Match'] = cached.etag;
 
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
         const response = await fetchWithTimeout(url, { method: 'GET', headers });
+        if (response.status === 304 && cached) return cached.payload;
         const payload = await parseJsonResponse(response);
-        if (!response.ok || payload?.success === false) throw toError(payload, response.status);
+        if (!response.ok || payload?.success === false) {
+          const error = toError(payload, response.status);
+          error.retryAfter = response.headers.get('retry-after');
+          throw error;
+        }
+        if (!token) writeCache(url, response.headers.get('etag'), payload);
         return payload;
       } catch (error) {
-        if (attempt < retries) {
-          await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)));
+        if (attempt < retries && isTransient(error)) {
+          await wait(retryDelay(attempt, error));
           continue;
         }
+        if (cached && isTransient(error)) return { ...cached.payload, stale: true, savedAt: cached.savedAt };
         if (!silent) console.error(`API Error [${endpoint}]:`, error.message);
         throw error;
       }
@@ -114,7 +161,12 @@ class ApiService {
 
   async post(endpoint, body = {}, retries = 1, silent = false, token = null) {
     const url = `${this.baseUrl}/${endpoint}`;
-    const headers = { Accept: 'application/json', 'Content-Type': 'application/json' };
+    const headers = {
+      Accept: 'application/json',
+      'Accept-Language': 'fr',
+      'Content-Type': 'application/json',
+      'Idempotency-Key': idempotencyKey(),
+    };
     if (token) headers.Authorization = `Bearer ${token}`;
 
     for (let attempt = 0; attempt <= retries; attempt++) {
@@ -125,11 +177,15 @@ class ApiService {
           body: JSON.stringify(body ?? {}),
         });
         const payload = await parseJsonResponse(response);
-        if (!response.ok || payload?.success === false) throw toError(payload, response.status);
+        if (!response.ok || payload?.success === false) {
+          const error = toError(payload, response.status);
+          error.retryAfter = response.headers.get('retry-after');
+          throw error;
+        }
         return payload;
       } catch (error) {
-        if (attempt < retries) {
-          await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)));
+        if (attempt < retries && isTransient(error)) {
+          await wait(retryDelay(attempt, error));
           continue;
         }
         if (!silent) console.error(`API POST Error [${endpoint}]:`, error.message);

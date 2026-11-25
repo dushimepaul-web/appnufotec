@@ -1,10 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator, Alert, Dimensions, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, Share,
-  StyleSheet, Text, TextInput, TouchableOpacity, View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import Image from '../src/components/CachedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSettings } from '../src/contexts/SettingsContext';
 import { useTheme } from '../src/contexts/ThemeContext';

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Dimensions, FlatList, Image, Modal, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, FlatList, Modal, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Image from '../src/components/CachedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BottomNav from '../src/components/BottomNav';
 import YoutubeIframe from '../src/components/YoutubeIframe';

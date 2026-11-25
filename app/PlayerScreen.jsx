@@ -3,10 +3,8 @@ import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-au
 import { router, useLocalSearchParams } from 'expo-router';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useContext, useEffect, useRef, useState, useMemo } from 'react';
-import {
-  ActivityIndicator, Alert, Dimensions, Image, Linking,
-  Platform, Share, StyleSheet, Text, TouchableOpacity, View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Linking, Platform, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Image from '../src/components/CachedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import YoutubeIframe from '../src/components/YoutubeIframe';

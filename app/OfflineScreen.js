@@ -1,9 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useMemo } from 'react';
-import {
-  Alert, FlatList, Image, StyleSheet, Text, TouchableOpacity, View,
-} from 'react-native';
+import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Image from '../src/components/CachedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BottomNav from '../src/components/BottomNav';
 import { useSettings } from '../src/contexts/SettingsContext';

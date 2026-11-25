@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useContext, useMemo } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Image from './CachedImage';
 import { PlayerActionsContext } from '../contexts/PlayerContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { timeAgo } from '../utils/format';

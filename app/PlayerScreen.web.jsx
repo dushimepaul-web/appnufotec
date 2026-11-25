@@ -1,10 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState, useMemo } from 'react';
-import {
-  ActivityIndicator, Alert, Dimensions, Image, Linking,
-  Share, StyleSheet, Text, TouchableOpacity, View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Linking, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Image from '../src/components/CachedImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import YoutubeIframe from '../src/components/YoutubeIframe';
 import WatchDetails from '../src/components/WatchDetails';
