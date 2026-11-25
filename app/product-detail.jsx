@@ -229,7 +229,7 @@ export default function ProductDetailScreen() {
                     onPress={() => router.push({ pathname: '/product-detail', params: { slug: item.slug || item.id } })}
                   >
                     <View style={styles.similarImgWrap}>
-                      {item.image ? <Image source={{ uri: item.image }} style={styles.similarImg} resizeMode="contain" /> : null}
+                      {item.image ? <Image source={{ uri: item.image }} style={styles.similarImg} resizeMode="contain" thumb /> : null}
                     </View>
                     <Text style={styles.similarTitle} numberOfLines={2}>{item.title}</Text>
                     <Text style={styles.similarPrice}>{item.price}</Text>
@@ -270,7 +270,7 @@ export default function ProductDetailScreen() {
               <TouchableOpacity onPress={() => setShowOrderForm(false)}><Ionicons name="close" size={24} color={palette.dark} /></TouchableOpacity>
             </View>
             <View style={styles.summary}>
-              {product.image ? <Image source={{ uri: product.image }} style={styles.summaryImg} resizeMode="contain" /> : null}
+              {product.image ? <Image source={{ uri: product.image }} style={styles.summaryImg} resizeMode="contain" thumb /> : null}
               <View style={{ flex: 1 }}>
                 <Text style={styles.summaryTitle} numberOfLines={1}>{product.title}</Text>
                 <Text style={styles.summaryMeta}>{`${quantity} × ${product.price}`}</Text>

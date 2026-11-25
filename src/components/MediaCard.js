@@ -55,7 +55,7 @@ export default function MediaCard({ item, onPress, horizontal = false, variant =
       {useDisc ? (
         <MediaThumb type={item.type} small={small} />
       ) : hasThumb ? (
-        <Image source={{ uri: item.thumbnail_url }} style={styles.thumbImg} resizeMode="cover" />
+        <Image source={{ uri: item.thumbnail_url }} style={styles.thumbImg} resizeMode="cover" thumb={style === styles.thumbCompact} />
       ) : (
         <View style={styles.placeholder}>
           <Image source={getDefaultThumbnail(item.type)} style={styles.placeholderImg} resizeMode="contain" />

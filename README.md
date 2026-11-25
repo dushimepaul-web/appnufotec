@@ -13,7 +13,12 @@ Application mobile (Expo / React Native) de NUFOTEC BURUNDI, branchée sur l'API
 **Rapidité**
 - Réponses de l'API gardées en cache avec leur ETag (`src/utils/httpCache.js`) : si rien n'a changé, l'API répond
   304 sans contenu et l'app réutilise sa copie.
-- Images mises en cache mémoire + disque (`src/components/CachedImage.js`, basé sur `expo-image`).
+- Images mises en cache mémoire + disque (`src/components/CachedImage.js`, basé sur `expo-image`), WebP demandé
+  explicitement au serveur ; vignettes de 400 px (`?w=400`, 10 à 25 Ko) dans les listes (prop `thumb`).
+- Accueil en une seule requête au démarrage (`api.warmup()` -> `GET /accueil`) : les six adresses qu'elle remplace
+  sont servies depuis le cache. Une copie de moins de 30 s est utilisée sans requête.
+- Affichage immédiat : les écrans reçoivent d'abord la copie gardée (`options.onCached`), puis la version à jour ;
+  « tirer pour actualiser » interroge toujours le serveur (`options.force`).
 - Audio lu dans sa version légère (~64 kbit/s) par défaut (`/medias/{slug}/flux`).
 
 **Disponibilité**

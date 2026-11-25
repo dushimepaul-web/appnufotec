@@ -112,10 +112,11 @@ export function SettingsProvider({ children }) {
   useEffect(() => {
     (async () => {
       try {
-        const res = await api.getSettings();
-        if (res.success && res.data) {
-          setSettings(mergeDeep(DEFAULTS, adaptSettings(res.data)));
-        }
+        const apply = (res) => {
+          if (res?.success && res.data) setSettings(mergeDeep(DEFAULTS, adaptSettings(res.data)));
+        };
+        // copie gardée affichée tout de suite, puis version à jour
+        apply(await api.getSettings({ onCached: (cached) => { apply(cached); setLoaded(true); } }));
       } catch (_e) {
         // Paramètres serveur indisponibles : on utilise les défauts locaux
       } finally {

@@ -1,6 +1,7 @@
 // app/_layout.tsx
 import { useRouter, Stack } from 'expo-router';
 import { useEffect, useRef } from 'react';
+import { Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NotificationProvider, useNotifications } from '../src/contexts/NotificationContext';
 import { PlayerProvider } from '../src/contexts/PlayerContext';
@@ -13,6 +14,12 @@ import ErrorBoundary from '../src/components/ErrorBoundary';
 import ThemeToggle from '../src/components/ThemeToggle';
 import { registerForPushNotifications, sendTokenToServer, setupNotificationListeners } from '../src/services/notifications';
 import { getStoredAuth } from '../src/services/auth';
+import api from '../src/utils/api';
+
+// Rapidité : l'accueil complet est demandé en une seule requête dès l'ouverture de l'app, avant même
+// l'affichage des écrans (paramètres, réseaux, témoignages, médias, produits : voir api.warmup).
+// (pas pendant la génération des pages web statiques, où il n'y a pas de navigateur)
+if (Platform.OS !== 'web' || typeof document !== 'undefined') api.warmup();
 
 function NotifInit() {
   const router = useRouter();
